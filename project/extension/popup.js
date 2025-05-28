@@ -231,7 +231,9 @@ if (settingsForm) {
       popupInterval: 30,
       activeHours: { enabled: false, startTime: '09:00', endTime: '21:00' },
       theme: 'light',
-      language: 'vi'
+      language: 'vi',
+      geminiApiKey: '',
+      geminiModel: ''
     };
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.get(['settings'], (result) => {
@@ -254,6 +256,8 @@ if (settingsForm) {
     document.getElementById('activeEnd').value = settings.activeHours.endTime;
     document.getElementById('theme').value = settings.theme;
     document.getElementById('language').value = settings.language;
+    document.getElementById('geminiApiKey').value = settings.geminiApiKey || '';
+    document.getElementById('geminiModel').value = settings.geminiModel || '';
   }
   // Hàm lưu settings
   settingsForm.onsubmit = function(e) {
@@ -268,7 +272,9 @@ if (settingsForm) {
         endTime: document.getElementById('activeEnd').value
       },
       theme: document.getElementById('theme').value,
-      language: document.getElementById('language').value
+      language: document.getElementById('language').value,
+      geminiApiKey: document.getElementById('geminiApiKey').value.trim(),
+      geminiModel: document.getElementById('geminiModel').value.trim()
     };
     function afterSave() {
       showNotification('Đã lưu cài đặt!');

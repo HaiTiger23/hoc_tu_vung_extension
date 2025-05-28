@@ -111,4 +111,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       resetAlarm();
     });
   }
+});
+
+// Đăng ký context menu khi cài đặt extension
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'add_to_learn',
+    title: 'Thêm vào danh sách học (Add to learn)',
+    contexts: ['selection']
+  });
+});
+
+// Lắng nghe khi người dùng chọn context menu
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'add_to_learn' && info.selectionText) {
+    // Gửi message sang content script của tab hiện tại
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'ADD_TO_LEARN',
+      text: info.selectionText
+    });
+  }
 }); 
