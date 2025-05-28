@@ -338,7 +338,40 @@ if (resetLearningStateBtn) {
   resetLearningStateBtn.onclick = function() {
     if (chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({ vocabLearningState: null }, () => {
-        showNotification('Đã reset trạng thái học từ!');
+        showNotification('Đã reset trạng thái học từ!', 'success');
+      });
+    } else {
+      showNotification('Không hỗ trợ trên trình duyệt này!', 'danger');
+    }
+  };
+}
+// Nút test hiển thị học từ (alert)
+const testAlertBtn = document.getElementById('testAlertBtn');
+if (testAlertBtn) {
+  testAlertBtn.onclick = function() {
+    // Từ mẫu test
+    const testWord = {
+      word: 'example',
+      meaning: 'ví dụ',
+      explanation: 'Từ dùng để minh họa',
+      example: 'This is an example',
+      note: '',
+      status: 'not_learned',
+      learnCount: 0,
+      mistakeCount: 0,
+      correctStreak: 0,
+      nextReviewAt: '',
+      lastReviewedAt: ''
+    };
+    if (chrome.tabs) {
+      chrome.tabs.query({active: true, currentWindow: true, url: ["http://*/*", "https://*/*"]}, (tabs) => {
+        if (tabs.length > 0) {
+          chrome.tabs.sendMessage(tabs[0].id, { type: 'SHOW_LEARN_MODAL', word: testWord }, () => {
+            showNotification('Đã gửi yêu cầu test học từ!');
+          });
+        } else {
+          showNotification('Không tìm thấy tab hợp lệ!', 'danger');
+        }
       });
     } else {
       showNotification('Không hỗ trợ trên trình duyệt này!', 'danger');

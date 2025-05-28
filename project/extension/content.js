@@ -1,77 +1,36 @@
-// Content script: Nhận message từ background để hiện modal học từ
+// Content script: Nhận message từ background để hỏi đáp bằng alert
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'SHOW_LEARN_MODAL' && msg.word) {
-    showLearnModal(msg.word);
+    showLearnAlert(msg.word);
   }
 });
 
-function showLearnModal(word) {
-  if (document.getElementById('vocab-learn-modal')) return;
-  // Tạo overlay
-  const overlay = document.createElement('div');
-  overlay.id = 'vocab-learn-modal';
-  overlay.innerHTML = `
-    <div class="vocab-learn-overlay-block">
-      <div class="vocab-learn-box">
-        <h5 class="mb-3 text-center">Ôn tập từ vựng</h5>
-        <div id="vocab-learn-question" class="mb-3"></div>
-        <input type="text" class="form-control mb-2" id="vocab-learn-answer" placeholder="Nhập đáp án...">
-        <button class="btn btn-primary w-100 mb-2" id="vocab-learn-check">Kiểm tra</button>
-        <div id="vocab-learn-feedback" class="alert d-none" role="alert"></div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  // Logic hỏi đáp
+function showLearnAlert(word) {
+  // Chọn chế độ hỏi đáp: 50% đảo chiều
   let mode = Math.random() < 0.5 ? 'en-to-vi' : 'vi-to-en';
-  const questionBox = document.getElementById('vocab-learn-question');
-  const answerInput = document.getElementById('vocab-learn-answer');
-  const checkBtn = document.getElementById('vocab-learn-check');
-  const feedback = document.getElementById('vocab-learn-feedback');
-  let mistakeCount = 0;
-  // Hiển thị câu hỏi
+  let question, answer, promptMsg;
   if (mode === 'en-to-vi') {
-    questionBox.innerHTML = `<b>${word.word}</b> &rarr; ?`;
-    answerInput.placeholder = 'Nhập nghĩa tiếng Việt...';
+    question = word.word;
+    answer = word.meaning;
+    promptMsg = `Từ: ${question}\nNhập nghĩa tiếng Việt:`;
   } else {
-    questionBox.innerHTML = `<b>${word.meaning}</b> &rarr; ?`;
-    answerInput.placeholder = 'Nhập từ gốc...';
+    question = word.meaning;
+    answer = word.word;
+    promptMsg = `Nghĩa: ${question}\nNhập từ gốc:`;
   }
-  answerInput.value = '';
-  feedback.classList.add('d-none');
-  answerInput.focus();
-  // Kiểm tra đáp án
-  function checkAnswer() {
-    const ans = answerInput.value.trim().toLowerCase();
-    let correct = false;
-    if (mode === 'en-to-vi') {
-      correct = ans === (word.meaning || '').toLowerCase();
-    } else {
-      correct = ans === (word.word || '').toLowerCase();
-    }
-    if (correct) {
-      feedback.className = 'alert alert-success';
-      feedback.textContent = 'Chính xác!';
-      feedback.classList.remove('d-none');
+  let userAns = '';
+  while (true) {
+    userAns = window.prompt(promptMsg, userAns || '');
+    if (userAns === null) continue; // Không cho đóng
+    if (userAns.trim().toLowerCase() === (answer || '').toLowerCase()) {
+      window.alert('Chính xác!');
       updateWordStats(true, word);
-      setTimeout(() => removeModal(), 900);
+      chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
+      break;
     } else {
-      feedback.className = 'alert alert-danger';
-      feedback.textContent = `Sai! Đáp án đúng: "${mode==='en-to-vi'?word.meaning:word.word}"`;
-      feedback.classList.remove('d-none');
-      mistakeCount++;
+      window.alert(`Sai! Đáp án đúng: ${answer}`);
       updateWordStats(false, word);
-      answerInput.focus();
     }
-  }
-  checkBtn.onclick = checkAnswer;
-  answerInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') checkAnswer();
-  });
-  // Không còn nút Đóng, chỉ đóng khi trả lời đúng
-  function removeModal() {
-    overlay.remove();
-    chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
   }
 }
 // Cập nhật trạng thái từ vựng (giống learn.js, dùng chrome.storage.local)
