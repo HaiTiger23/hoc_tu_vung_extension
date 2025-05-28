@@ -1,0 +1,17 @@
+/* CSS nhẹ cho trang thống kê từ vựng */
+body {
+  background: #f8fafc;
+}
+.card {
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+#overviewStats .card-body {
+  padding: 1.2rem 0.5rem;
+}
+#learnChart {
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  padding: 0.5rem;
+} 

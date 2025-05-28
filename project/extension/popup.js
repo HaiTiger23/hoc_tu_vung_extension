@@ -293,6 +293,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const tabPanes = document.querySelectorAll('.tab-pane');
   tabBtns.forEach(btn => {
     btn.addEventListener('click', function() {
+      // Nếu là tab Thống kê thì mở trang mới và không chuyển tab trong popup
+      if (btn.id === 'stats-tab') {
+        window.open('stats.html', '_blank');
+        // Chuyển về tab Từ vựng trong popup
+        const vocabTab = document.getElementById('vocab-tab');
+        if (vocabTab) vocabTab.click();
+        return;
+      }
       tabBtns.forEach(b => b.classList.remove('active'));
       tabPanes.forEach(p => p.classList.remove('show', 'active'));
       btn.classList.add('active');
@@ -345,6 +353,22 @@ if (resetLearningStateBtn) {
     }
   };
 }
+// --- THÔNG BÁO HƯỚNG DẪN RELOAD TAB KHI MỞ POPUP LẦN ĐẦU ---
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['hasShownReloadGuide'], (result) => {
+      if (!result.hasShownReloadGuide) {
+        alert('Để extension hoạt động đầy đủ, vui lòng tải lại (reload) các tab đang mở sau khi cài hoặc bật extension.');
+        chrome.storage.local.set({ hasShownReloadGuide: true });
+      }
+    });
+  } else {
+    if (!localStorage.getItem('hasShownReloadGuide')) {
+      alert('Để extension hoạt động đầy đủ, vui lòng tải lại (reload) các tab đang mở sau khi cài hoặc bật extension.');
+      localStorage.setItem('hasShownReloadGuide', '1');
+    }
+  }
+});
 // Nút test hiển thị học từ (alert)
 const testAlertBtn = document.getElementById('testAlertBtn');
 if (testAlertBtn) {
@@ -368,7 +392,7 @@ if (testAlertBtn) {
         if (tabs.length > 0) {
           chrome.tabs.sendMessage(tabs[0].id, { type: 'SHOW_LEARN_MODAL', word: testWord }, () => {
             if (chrome.runtime.lastError) {
-              showNotification('Không thể gửi message: ' + chrome.runtime.lastError.message, 'danger');
+              showNotification('Tab này chưa được tải lại sau khi cài extension. Vui lòng reload trang!', 'danger');
             } else {
               showNotification('Đã gửi yêu cầu test học từ!');
             }

@@ -23,7 +23,17 @@ function showLearnAlert(word) {
     userAns = window.prompt(promptMsg, userAns || '');
     if (userAns === null) continue; // Không cho đóng
     if (userAns.trim().toLowerCase() === (answer || '').toLowerCase()) {
-      window.alert('Chính xác!');
+      // Gộp thông tin vào 1 confirm duy nhất
+      let msg = 'Chính xác!';
+      if (word.explanation) msg += `\n\nGiải thích: ${word.explanation}`;
+      if (word.example) msg += `\nVí dụ: ${word.example}`;
+      if (word.note) msg += `\nGhi chú: ${word.note}`;
+      msg += '\n\nBạn có muốn tra cứu chi tiết từ này trên Cambridge Dictionary không?';
+      let openDict = window.confirm(msg);
+      if (openDict && word.word) {
+        const cambridgeUrl = `https://dictionary.cambridge.org/vi/dictionary/english/${encodeURIComponent(word.word)}`;
+        window.open(cambridgeUrl, '_blank');
+      }
       updateWordStats(true, word);
       chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
       break;
