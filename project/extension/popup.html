@@ -56,6 +56,12 @@
           <textarea class="form-control mb-1" id="quickImport" rows="2" placeholder="Nhập nhanh: mỗi dòng 'từ | nghĩa | giải thích | ví dụ' (giải thích, ví dụ có thể bỏ qua)"></textarea>
           <button class="btn btn-outline-primary btn-sm w-100" id="quickImportBtn">Nhập nhanh</button>
         </div>
+        <!-- Nút xuất/nhập dữ liệu -->
+        <div class="mb-2 d-flex gap-2">
+          <button class="btn btn-outline-success btn-sm flex-fill" id="exportBtn">Xuất dữ liệu</button>
+          <button class="btn btn-outline-secondary btn-sm flex-fill" id="importBtn">Nhập dữ liệu</button>
+          <input type="file" id="importFileInput" accept="application/json" style="display:none">
+        </div>
         <div id="notification" class="alert d-none" role="alert"></div>
         <!-- Bảng danh sách từ vựng -->
         <div class="table-responsive mb-2">
@@ -125,6 +131,32 @@
           <button type="button" class="btn btn-warning w-100 mt-2" id="resetLearningStateBtn">Reset trạng thái học từ (gỡ kẹt modal)</button>
           <button type="button" class="btn btn-info w-100 mt-2" id="testAlertBtn">Test hiển thị học từ (alert)</button>
         </form>
+        <!-- ĐỒNG BỘ ĐÁM MÂY -->
+        <div class="card mt-4">
+          <div class="card-header bg-light">Đồng bộ đám mây</div>
+          <div class="card-body">
+            <div class="mb-2">
+              <label class="form-label">Nhà cung cấp</label>
+              <select class="form-select" id="cloudProvider" disabled>
+                <option value="firebase">Firebase</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label for="firebaseUrl" class="form-label">Firebase Database URL</label>
+              <input type="text" class="form-control" id="firebaseUrl" placeholder="https://your-project-id.firebaseio.com/" required>
+            </div>
+            <div class="mb-2">
+              <label for="firebaseToken" class="form-label">Token (API key hoặc custom token)</label>
+              <input type="text" class="form-control" id="firebaseToken" placeholder="Nhập token bảo mật..." required>
+            </div>
+            <div class="d-grid gap-2 mb-2">
+              <button class="btn btn-primary" id="saveCloudSyncBtn">Lưu thông tin đồng bộ</button>
+              <button class="btn btn-success" id="syncNowBtn">Đồng bộ ngay</button>
+              <button class="btn btn-outline-danger" id="logoutCloudBtn">Đăng xuất đồng bộ</button>
+            </div>
+            <div id="cloudSyncStatus" class="small text-secondary"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -367,7 +367,11 @@ if (testAlertBtn) {
       chrome.tabs.query({active: true, currentWindow: true, url: ["http://*/*", "https://*/*"]}, (tabs) => {
         if (tabs.length > 0) {
           chrome.tabs.sendMessage(tabs[0].id, { type: 'SHOW_LEARN_MODAL', word: testWord }, () => {
-            showNotification('Đã gửi yêu cầu test học từ!');
+            if (chrome.runtime.lastError) {
+              showNotification('Không thể gửi message: ' + chrome.runtime.lastError.message, 'danger');
+            } else {
+              showNotification('Đã gửi yêu cầu test học từ!');
+            }
           });
         } else {
           showNotification('Không tìm thấy tab hợp lệ!', 'danger');
@@ -376,5 +380,260 @@ if (testAlertBtn) {
     } else {
       showNotification('Không hỗ trợ trên trình duyệt này!', 'danger');
     }
+  };
+}
+
+// --- XUẤT/NHẬP DỮ LIỆU TỪ VỰNG ---
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFileInput = document.getElementById('importFileInput');
+
+// Xử lý xuất dữ liệu
+if (exportBtn) {
+  exportBtn.onclick = function() {
+    // Tạo file JSON từ vocabData
+    const dataStr = JSON.stringify(vocabData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    // Đặt tên file theo ngày
+    const now = new Date();
+    const fileName = `vocab_backup_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}.json`;
+    // Tạo link tải
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    showNotification('Đã xuất dữ liệu từ vựng!');
+  };
+}
+
+// Xử lý nhập dữ liệu
+if (importBtn && importFileInput) {
+  importBtn.onclick = function() {
+    importFileInput.value = '';
+    importFileInput.click();
+  };
+  importFileInput.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const imported = JSON.parse(evt.target.result);
+        if (!Array.isArray(imported)) throw new Error('Dữ liệu không hợp lệ!');
+        // Xác nhận trước khi ghi đè
+        if (confirm('Nhập dữ liệu sẽ ghi đè toàn bộ từ vựng hiện tại. Bạn có chắc muốn tiếp tục?')) {
+          vocabData = imported;
+          saveVocab();
+          renderVocabTable();
+          showNotification('Đã nhập dữ liệu thành công!');
+        }
+      } catch (err) {
+        showNotification('File không hợp lệ hoặc lỗi dữ liệu!', 'danger');
+      }
+    };
+    reader.readAsText(file);
+  };
+}
+
+// --- ĐỒNG BỘ ĐÁM MÂY (FIREBASE) ---
+const firebaseUrlInput = document.getElementById('firebaseUrl');
+const firebaseTokenInput = document.getElementById('firebaseToken');
+const saveCloudSyncBtn = document.getElementById('saveCloudSyncBtn');
+const syncNowBtn = document.getElementById('syncNowBtn');
+const logoutCloudBtn = document.getElementById('logoutCloudBtn');
+const cloudSyncStatus = document.getElementById('cloudSyncStatus');
+
+// Hàm lưu thông tin đồng bộ vào storage
+function saveCloudSyncInfo(info, cb) {
+  if (chrome.storage && chrome.storage.sync) {
+    chrome.storage.sync.set({ cloudSync: info }, cb);
+  } else {
+    localStorage.setItem('cloudSync', JSON.stringify(info));
+    if (cb) cb();
+  }
+}
+// Hàm lấy thông tin đồng bộ từ storage
+function loadCloudSyncInfo(cb) {
+  if (chrome.storage && chrome.storage.sync) {
+    chrome.storage.sync.get(['cloudSync'], (result) => {
+      cb(result.cloudSync || null);
+    });
+  } else {
+    const info = JSON.parse(localStorage.getItem('cloudSync'));
+    cb(info || null);
+  }
+}
+// Hàm xóa thông tin đồng bộ
+function clearCloudSyncInfo(cb) {
+  if (chrome.storage && chrome.storage.sync) {
+    chrome.storage.sync.remove(['cloudSync'], cb);
+  } else {
+    localStorage.removeItem('cloudSync');
+    if (cb) cb();
+  }
+}
+// Hàm cập nhật form đồng bộ theo info
+function updateCloudSyncForm(info) {
+  firebaseUrlInput.value = info && info.firebaseUrl ? info.firebaseUrl : '';
+  firebaseTokenInput.value = info && info.firebaseToken ? info.firebaseToken : '';
+  if (info && info.firebaseUrl && info.firebaseToken) {
+    cloudSyncStatus.textContent = 'Đã lưu thông tin đồng bộ.';
+  } else {
+    cloudSyncStatus.textContent = 'Chưa thiết lập đồng bộ.';
+  }
+}
+// Khi nhấn Lưu thông tin đồng bộ
+if (saveCloudSyncBtn) {
+  saveCloudSyncBtn.onclick = function() {
+    const firebaseUrl = firebaseUrlInput.value.trim();
+    const firebaseToken = firebaseTokenInput.value.trim();
+    if (!firebaseUrl || !firebaseToken) {
+      cloudSyncStatus.textContent = 'Vui lòng nhập đủ Database URL và Token!';
+      return;
+    }
+    const info = { provider: 'firebase', firebaseUrl, firebaseToken };
+    saveCloudSyncInfo(info, () => {
+      cloudSyncStatus.textContent = 'Đã lưu thông tin đồng bộ!';
+    });
+  };
+}
+// Khi nhấn Đăng xuất đồng bộ
+if (logoutCloudBtn) {
+  logoutCloudBtn.onclick = function() {
+    if (confirm('Bạn có chắc muốn đăng xuất đồng bộ?')) {
+      clearCloudSyncInfo(() => {
+        firebaseUrlInput.value = '';
+        firebaseTokenInput.value = '';
+        cloudSyncStatus.textContent = 'Đã đăng xuất đồng bộ!';
+      });
+    }
+  };
+}
+// Khi mở tab Cài đặt, load thông tin đồng bộ
+if (document.getElementById('settings-tab')) {
+  document.getElementById('settings-tab').addEventListener('click', function() {
+    loadCloudSyncInfo(updateCloudSyncForm);
+  });
+}
+// Khi mở popup, load luôn trạng thái đồng bộ
+loadCloudSyncInfo(updateCloudSyncForm);
+
+// --- ĐỒNG BỘ FIREBASE: HÀM DÙNG CHUNG ---
+async function syncWithFirebase(mode = 'merge') {
+  // mode: 'merge' (2 chiều), 'upload' (chỉ upload local)
+  return new Promise((resolve) => {
+    loadCloudSyncInfo(async (cloudInfo) => {
+      if (!cloudInfo || !cloudInfo.firebaseUrl || !cloudInfo.firebaseToken) {
+        if (cloudSyncStatus) cloudSyncStatus.textContent = 'Chưa thiết lập thông tin đồng bộ!';
+        return resolve(false);
+      }
+      try {
+        const base = cloudInfo.firebaseUrl.replace(/\/$/, '');
+        const userPath = `/users/${cloudInfo.firebaseToken}`;
+        // Lấy dữ liệu local
+        let localVocab = [];
+        let localSettings = null;
+        if (chrome.storage && chrome.storage.local) {
+          await new Promise(res => chrome.storage.local.get(['vocabData'], r => { localVocab = r.vocabData || []; res(); }));
+        } else {
+          localVocab = JSON.parse(localStorage.getItem('vocabData')) || [];
+        }
+        if (chrome.storage && chrome.storage.sync) {
+          await new Promise(res => chrome.storage.sync.get(['settings'], r => { localSettings = r.settings || null; res(); }));
+        } else {
+          localSettings = JSON.parse(localStorage.getItem('settings')) || null;
+        }
+        let mergedVocab = localVocab;
+        let mergedSettings = localSettings;
+        if (mode === 'merge') {
+          // Lấy dữ liệu từ Firebase
+          const [remoteVocab, remoteSettings] = await Promise.all([
+            fetch(`${base}${userPath}/vocabData.json`).then(r => r.ok ? r.json() : []),
+            fetch(`${base}${userPath}/settings.json`).then(r => r.ok ? r.json() : null)
+          ]);
+          // Gộp từ vựng (ưu tiên lastReviewedAt lớn nhất)
+          function mergeVocab(localArr, remoteArr) {
+            const map = {};
+            [...(Array.isArray(localArr)?localArr:[]), ...(Array.isArray(remoteArr)?remoteArr:[])].forEach(item => {
+              const key = item.word + '|' + item.meaning;
+              if (!map[key] || (item.lastReviewedAt && item.lastReviewedAt > map[key].lastReviewedAt)) {
+                map[key] = item;
+              }
+            });
+            return Object.values(map);
+          }
+          mergedVocab = mergeVocab(localVocab, remoteVocab);
+          mergedSettings = localSettings || remoteSettings || {};
+          // Ghi dữ liệu mới nhất về local
+          if (chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ vocabData: mergedVocab });
+          } else {
+            localStorage.setItem('vocabData', JSON.stringify(mergedVocab));
+          }
+          if (chrome.storage && chrome.storage.sync) {
+            chrome.storage.sync.set({ settings: mergedSettings });
+          } else {
+            localStorage.setItem('settings', JSON.stringify(mergedSettings));
+          }
+        }
+        // Upload dữ liệu local (hoặc đã merge) lên Firebase
+        await fetch(`${base}${userPath}/vocabData.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mergedVocab)
+        });
+        await fetch(`${base}${userPath}/settings.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mergedSettings)
+        });
+        if (cloudSyncStatus && mode === 'merge') {
+          cloudSyncStatus.textContent = 'Đồng bộ thành công lúc ' + new Date().toLocaleTimeString();
+        }
+        if (mode === 'merge') showNotification('Đồng bộ đám mây thành công!');
+        resolve(true);
+      } catch (err) {
+        if (cloudSyncStatus && mode === 'merge') {
+          cloudSyncStatus.textContent = 'Lỗi đồng bộ: ' + (err.message || err);
+        }
+        if (mode === 'merge') showNotification('Đồng bộ thất bại!', 'danger');
+        resolve(false);
+      }
+    });
+  });
+}
+
+// --- ĐỒNG BỘ NGAY VỚI FIREBASE (GỌI HÀM CHUNG) ---
+if (syncNowBtn) {
+  syncNowBtn.onclick = function() {
+    if (cloudSyncStatus) cloudSyncStatus.textContent = 'Đang đồng bộ...';
+    syncWithFirebase('merge').then(() => { loadVocab(); });
+  };
+}
+
+// --- TỰ ĐỘNG ĐỒNG BỘ KHI MỞ POPUP ---
+document.addEventListener('DOMContentLoaded', function() {
+  syncWithFirebase('merge');
+});
+
+// --- TỰ ĐỘNG ĐỒNG BỘ KHI LƯU TỪ VỰNG ---
+// Chèn vào cuối hàm saveVocab
+const _oldSaveVocab = saveVocab;
+saveVocab = function() {
+  _oldSaveVocab.apply(this, arguments);
+  syncWithFirebase('upload');
+};
+// --- TỰ ĐỘNG ĐỒNG BỘ KHI LƯU SETTINGS ---
+if (settingsForm) {
+  const _oldSettingsSubmit = settingsForm.onsubmit;
+  settingsForm.onsubmit = function(e) {
+    if (_oldSettingsSubmit) _oldSettingsSubmit.call(this, e);
+    setTimeout(() => { syncWithFirebase('upload'); }, 500);
   };
 } 

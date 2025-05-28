@@ -20,17 +20,5 @@
 ### 3. Đồng bộ đám mây
 
 - Hỗ trợ nhiều nhà cung cấp (MongoDB/Firebase)
-- Đăng nhập bảo mật qua email/token
+- Đăng nhập bảo mật qua token
 - Đồng bộ 2 chiều tự động
-
-## Yêu cầu bảo mật
-
-- Mã hóa dữ liệu nhạy cảm
-- Xác thực người dùng nghiêm ngặt
-- Tuân thủ quy định bảo vệ dữ liệu
-
-## Xử lý xung đột
-
-- Ưu tiên phiên bản mới hơn
-- Cảnh báo khi có thay đổi xung đột
-- Lịch sử thay đổi gần nhất
