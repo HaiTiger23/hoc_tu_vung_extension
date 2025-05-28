@@ -1,0 +1,5 @@
+.vocab-learn-overlay-block { position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center; }
+.vocab-learn-box { max-width:400px;width:95vw;background:#fff;border-radius:12px;box-shadow:0 2px 16px #0002;padding:2rem; }
+.vocab-learn-box h5 { font-size:1.3rem;font-weight:600; }
+.vocab-learn-box input, .vocab-learn-box button { font-size:1.1rem; }
+.vocab-learn-box .alert { margin-bottom:0.5rem; } 

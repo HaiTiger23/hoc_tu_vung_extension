@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý từ vựng</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="bg-light">
+  <div class=" p-3" style="min-width:800px;width:800px;">
+    <h5 class="mb-3 text-center">Quản lý từ vựng</h5>
+    <ul class="nav nav-tabs mb-2" id="mainTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="vocab-tab" data-bs-toggle="tab" data-bs-target="#vocabTabPane" type="button" role="tab">Từ vựng</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settingsTabPane" type="button" role="tab">Cài đặt</button>
+      </li>
+    </ul>
+    <div class="tab-content" id="mainTabContent">
+      <div class="tab-pane fade show active" id="vocabTabPane" role="tabpanel">
+        <!-- Thanh tìm kiếm và lọc trạng thái -->
+        <div class="row g-2 mb-2">
+          <div class="col-7">
+            <input type="text" class="form-control" id="searchInput" placeholder="Tìm kiếm từ hoặc nghĩa...">
+          </div>
+          <div class="col-5">
+            <select class="form-select" id="statusFilter">
+              <option value="">Tất cả trạng thái</option>
+              <option value="not_learned">Chưa học</option>
+              <option value="learned">Đã học</option>
+              <option value="mastered">Thành thạo</option>
+            </select>
+          </div>
+        </div>
+        <!-- Form thêm/sửa từ vựng -->
+        <form id="addWordForm" class="row g-2 mb-2">
+          <div class="col-5">
+            <input type="text" class="form-control" id="word" placeholder="Từ (ngôn ngữ 1)" required>
+          </div>
+          <div class="col-5">
+            <input type="text" class="form-control" id="meaning" placeholder="Nghĩa (ngôn ngữ 2)" required>
+          </div>
+          <div class="col-2 d-grid">
+            <button type="submit" class="btn btn-success">Lưu</button>
+          </div>
+          <div class="col-12">
+            <input type="text" class="form-control mb-1" id="explanation" placeholder="Giải thích (tùy chọn)">
+            <input type="text" class="form-control mb-1" id="example" placeholder="Ví dụ (tùy chọn)">
+            <input type="text" class="form-control" id="note" placeholder="Ghi chú (tùy chọn)">
+          </div>
+        </form>
+        <!-- Nhập nhanh nhiều từ -->
+        <div class="mb-2">
+          <textarea class="form-control mb-1" id="quickImport" rows="2" placeholder="Nhập nhanh: mỗi dòng 'từ | nghĩa | giải thích | ví dụ' (giải thích, ví dụ có thể bỏ qua)"></textarea>
+          <button class="btn btn-outline-primary btn-sm w-100" id="quickImportBtn">Nhập nhanh</button>
+        </div>
+        <div id="notification" class="alert d-none" role="alert"></div>
+        <!-- Bảng danh sách từ vựng -->
+        <div class="table-responsive mb-2">
+          <table class="table table-bordered table-sm align-middle mb-0" id="vocabTable">
+            <thead class="table-light">
+              <tr>
+                <th>Từ</th>
+                <th>Nghĩa</th>
+                <th>Trạng thái</th>
+                <th>Lần học</th>
+                <th>Sai</th>
+                <th>Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="vocabTableBody">
+              <!-- Dữ liệu sẽ được render ở đây -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="settingsTabPane" role="tabpanel">
+        <form id="settingsForm" class="mt-2">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="isEnabled">
+            <label class="form-check-label" for="isEnabled">Bật tiện ích</label>
+          </div>
+          <div class="mb-2">
+            <label for="dailyWordGoal" class="form-label">Số từ mục tiêu mỗi ngày</label>
+            <input type="number" class="form-control" id="dailyWordGoal" min="1" max="50">
+          </div>
+          <div class="mb-2">
+            <label for="popupInterval" class="form-label">Thời gian giữa các popup (phút)</label>
+            <input type="number" class="form-control" id="popupInterval" min="1" max="120">
+          </div>
+          <div id="nextPopupCountdown" class="text-secondary small mt-1"></div>
+          <div class="mb-2">
+            <label class="form-label">Khung giờ hoạt động</label>
+            <div class="form-check form-switch mb-1">
+              <input class="form-check-input" type="checkbox" id="activeHoursEnabled">
+              <label class="form-check-label" for="activeHoursEnabled">Bật khung giờ</label>
+            </div>
+            <div class="row g-2">
+              <div class="col">
+                <input type="time" class="form-control" id="activeStart">
+              </div>
+              <div class="col">
+                <input type="time" class="form-control" id="activeEnd">
+              </div>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label for="theme" class="form-label">Chủ đề giao diện</label>
+            <select class="form-select" id="theme">
+              <option value="light">Sáng</option>
+              <option value="dark">Tối</option>
+              <option value="system">Theo hệ thống</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label for="language" class="form-label">Ngôn ngữ giao diện</label>
+            <select class="form-select" id="language">
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Lưu cài đặt</button>
+          <button type="button" class="btn btn-warning w-100 mt-2" id="resetLearningStateBtn">Reset trạng thái học từ (gỡ kẹt modal)</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html> 

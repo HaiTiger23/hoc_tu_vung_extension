@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Vocabulary Learning Extension",
+  "description": "Tiện ích mở rộng giúp học và quản lý từ vựng giữa hai ngôn ngữ bất kỳ.",
+  "version": "1.0.0",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ]
+} 

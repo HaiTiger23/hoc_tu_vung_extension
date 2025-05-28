@@ -1,0 +1,43 @@
+/* Tiêu đề lớn vừa phải */
+h5 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+/* Padding popup */
+.container.py-3 {
+  padding-top: 1.2rem !important;
+  padding-bottom: 1.2rem !important;
+}
+/* Input và nút vừa phải */
+#addWordForm .form-control,
+#addWordForm .btn,
+#quickImport,
+#quickImportBtn {
+  font-size: 1rem;
+  padding: 0.45rem 0.75rem;
+}
+#addWordForm .btn, #quickImportBtn {
+  min-width: 70px;
+  padding: 0.45rem 0.2rem;
+}
+/* Bảng từ vựng */
+.table-sm th, .table-sm td {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.97rem;
+}
+.table th, .table td {
+  vertical-align: middle;
+}
+/* Responsive cho mobile */
+@media (max-width: 400px) {
+  .container.py-3 { min-width: 98vw !important; max-width: 100vw !important; }
+  .table-responsive { font-size: 0.92rem; }
+}
+#vocabList .btn {
+  min-width: 56px;
+  font-size: 1rem;
+}
+#notification {
+  font-size: 1rem;
+  padding: 0.7rem 1.2rem;
+} 

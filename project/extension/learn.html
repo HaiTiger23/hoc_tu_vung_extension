@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ôn tập từ vựng</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .overlay-block { position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:rgba(0,0,0,0.2); }
+    .learn-box { max-width: 400px; margin: 10vh auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 16px #0001; padding: 2rem; }
+    .learn-box input, .learn-box button { font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+  <div class="overlay-block">
+    <div class="learn-box">
+      <h5 class="mb-3 text-center">Ôn tập từ vựng</h5>
+      <div id="questionBox" class="mb-3"></div>
+      <input type="text" class="form-control mb-2" id="answerInput" placeholder="Nhập đáp án...">
+      <button class="btn btn-primary w-100 mb-2" id="checkBtn">Kiểm tra</button>
+      <div id="feedback" class="alert d-none" role="alert"></div>
+      <button class="btn btn-outline-secondary w-100" id="closeBtn">Đóng</button>
+    </div>
+  </div>
+  <script src="learn.js"></script>
+</body>
+</html> 
