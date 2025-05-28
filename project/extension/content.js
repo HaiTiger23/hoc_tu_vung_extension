@@ -43,7 +43,7 @@ function showLearnAlert(word) {
       break;
     } else {
       window.alert(`Sai! Đáp án đúng: ${answer}`);
-      updateWordStats(false, word);
+      word.mistakeCount = (word.mistakeCount || 0) + 1; // Cập nhật tạm để lần hỏi sau đúng
     }
   }
 }
@@ -94,7 +94,7 @@ async function addWordByGemini(wordText) {
       return;
     }
     // Tạo prompt cho Gemini
-    const prompt = `Hãy trả lời bằng JSON với các trường:\nmeaning: nghĩa tiếng Việt ngắn gọn, 1 từ để dễ trả lời\nexplanation: giải thích ngắn gọn\nexample: ví dụ tiếng Anh kèm dịch\nTừ: "${wordText}"`;
+    const prompt = `Hãy trả lời bằng JSON với các trường:\nmeaning: nghĩa tiếng Việt ngắn gọn, 1 từ để dễ trả lời\nexplanation: giải thích ngắn gọn\nexample: ví dụ tiếng Anh kèm dịc, trả về dạng string nhah\nTừ: "${wordText}"`;
     // Gọi Gemini API
     const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
