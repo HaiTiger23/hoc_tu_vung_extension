@@ -13,19 +13,35 @@ Extension Chrome giúp bạn học và quản lý từ vựng tiếng Anh hiệu
 - **Thông báo rõ ràng:** Giao diện Bootstrap, thông báo thành công/thất bại bằng tiếng Việt.
 
 ## Hướng dẫn cài đặt
-1. **Tải mã nguồn:**
-   - Clone hoặc tải về thư mục `project/extension`.
-2. **Cài đặt extension vào Chrome:**
-   - Mở Chrome, truy cập `chrome://extensions/`.
-   - Bật "Chế độ dành cho nhà phát triển" (Developer mode).
-   - Nhấn "Tải tiện ích đã giải nén" (Load unpacked) và chọn thư mục `project/extension`.
-3. **Cấu hình (nếu cần):**
-   - Nhấn vào icon extension, vào tab "Cài đặt" để nhập API key Gemini (nếu muốn dùng AI), chỉnh các tuỳ chọn cá nhân.
-   - (Tuỳ chọn) Thiết lập đồng bộ Firebase nếu muốn lưu trữ đám mây.
-4. **Sử dụng:**
-   - Thêm từ mới trực tiếp trên popup hoặc qua menu chuột phải.
+
+1. **Tải mã nguồn extension:**
+   - Tải về hoặc giải nén thư mục chứa mã nguồn extension (thường là `project/extension`).
+
+2. **Cài đặt vào Chrome:**
+   - Mở trình duyệt Chrome, truy cập địa chỉ `chrome://extensions/`.
+   - Bật "Chế độ dành cho nhà phát triển" (góc phải trên cùng).
+   - Nhấn nút "Tải tiện ích đã giải nén" (Load unpacked).
+   - Chọn đến thư mục extension bạn vừa tải về (chọn đúng thư mục chứa file `manifest.json`).
+
+3. **Cấp quyền và reload tab:**
+   - Sau khi cài đặt, hãy tải lại (reload) tất cả các tab đang mở để extension hoạt động đầy đủ.
+   - Nếu extension yêu cầu quyền truy cập trang web, hãy đồng ý/cấp quyền khi được hỏi.
+
+4. **Cấu hình extension:**
+   - Nhấn vào biểu tượng extension ở góc trình duyệt để mở giao diện.
+   - Chuyển sang tab "Cài đặt" để:
+     - Nhập API key Gemini (nếu muốn sử dụng chức năng AI tự động giải thích từ vựng).
+     - Thiết lập các tuỳ chọn cá nhân như số từ/ngày, thời gian popup, chủ đề giao diện, ngôn ngữ...
+     - (Tuỳ chọn) Thiết lập đồng bộ Firebase nếu muốn lưu trữ và đồng bộ từ vựng trên nhiều thiết bị.
+
+5. **Bắt đầu sử dụng:**
+   - Thêm từ mới trực tiếp trên popup hoặc qua menu chuột phải trên trang web.
    - Học từ vựng qua popup định kỳ hoặc nhấn nút "Test alert" để kiểm tra nhanh.
-   - Quản lý, xuất/nhập, đồng bộ từ vựng dễ dàng.
+   - Quản lý, xuất/nhập, đồng bộ từ vựng dễ dàng qua các nút chức năng trên giao diện.
+
+**Lưu ý:**
+- Nếu gặp lỗi không hiện popup học từ, hãy kiểm tra lại quyền extension và đảm bảo đã reload các tab.
+- Extension chỉ hoạt động trên các trang http/https hợp lệ.
 
 ## Yêu cầu
 - Chrome phiên bản mới nhất.

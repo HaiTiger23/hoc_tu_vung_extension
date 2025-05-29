@@ -23,6 +23,7 @@ function showLearnAlert(word) {
     promptMsg = `Nghĩa: ${question}\nNhập từ gốc:`;
   }
   let userAns = '';
+  let mistakeCount = 0;
   while (true) {
     userAns = window.prompt(promptMsg, userAns || '');
     if (userAns === null) continue; // Không cho đóng
@@ -38,12 +39,13 @@ function showLearnAlert(word) {
         const cambridgeUrl = `https://dictionary.cambridge.org/vi/dictionary/english/${encodeURIComponent(word.word)}`;
         window.open(cambridgeUrl, '_blank');
       }
-      updateWordStats(true, word);
+      updateWordStats(mistakeCount, word);
       chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
       break;
     } else {
       window.alert(`Sai! Đáp án đúng: ${answer}`);
-      word.mistakeCount = (word.mistakeCount || 0) + 1; // Cập nhật tạm để lần hỏi sau đúng
+      mistakeCount++;
+      
     }
   }
 }
@@ -144,16 +146,15 @@ async function addWordByGemini(wordText) {
 }
 
 // Cập nhật trạng thái từ vựng (giống learn.js, dùng chrome.storage.local)
-function updateWordStats(isCorrect, word) {
+function updateWordStats(mistakeCount, word) {
   function update(list) {
     const idx = list.findIndex(w => w.word === word.word && w.meaning === word.meaning);
     if (idx >= 0) {
       const now = new Date();
       let w = list[idx];
-      if (isCorrect) {
+      
         w.learnCount = (w.learnCount || 0) + 1;
         w.correctStreak = (w.correctStreak || 0) + 1;
-        w.mistakeCount = w.mistakeCount || 0;
         w.timesReviewed = (w.timesReviewed || 0) + 1;
         let interval = w.interval || 0;
         if (w.correctStreak === 1) interval = 1/24;
@@ -166,12 +167,14 @@ function updateWordStats(isCorrect, word) {
         w.nextReviewAt = new Date(now.getTime() + interval*24*60*60*1000).toISOString();
         if (w.correctStreak >= 7 && w.mistakeCount <= 2) w.isMastered = true;
         w.status = w.correctStreak >= 3 ? 'learned' : 'not_learned';
-      } else {
-        w.mistakeCount = (w.mistakeCount || 0) + 1;
+        
+        if(mistakeCount > 0) {
+        w.mistakeCount = (w.mistakeCount || 0) + mistakeCount;
         w.correctStreak = 0;
         w.interval = 5/(24*60);
         w.nextReviewAt = new Date(Date.now() + 5*60*1000).toISOString();
         w.isMastered = false;
+        console.log("mistakeCount",w.word, w.mistakeCount);
       }
       w.lastReviewedAt = new Date().toISOString();
       list[idx] = w;
@@ -179,7 +182,9 @@ function updateWordStats(isCorrect, word) {
     return list;
   }
   chrome.storage.local.get(['vocabData'], (result) => {
+    console.log("updateWordStats", result.vocabData.map(w => {return {word: w.word, mistakeCount: w.mistakeCount}}));
     const newList = update(result.vocabData || []);
+    console.log("updateWordStats", newList.map(w => {return {word: w.word, mistakeCount: w.mistakeCount}}));
     chrome.storage.local.set({ vocabData: newList });
   });
 }
