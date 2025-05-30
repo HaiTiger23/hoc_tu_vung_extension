@@ -40,4 +40,23 @@ h5 {
 #notification {
   font-size: 1rem;
   padding: 0.7rem 1.2rem;
-} 
+}
+
+/* Style for clickable word links */
+.word-detail {
+  color: #0d6efd;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.word-detail:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
+.word-detail:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: 2px;
+  border-radius: 2px;
+}

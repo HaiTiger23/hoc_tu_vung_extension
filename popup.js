@@ -71,7 +71,17 @@ function renderVocabTable() {
   filtered.forEach((item, idx) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td title="${item.explanation || ''}">${item.word}</td>
+      <td>
+        <a href="#" class="word-detail" 
+           data-word="${item.word}"
+           data-meaning="${item.meaning}"
+           data-explanation="${item.explanation || ''}"
+           data-example="${item.example || ''}"
+           data-note="${item.note || ''}"
+           title="${item.explanation || ''}">
+          ${item.word}
+        </a>
+      </td>
       <td title="${item.example || ''}">${item.meaning}</td>
       <td>${statusLabel(item.status)}</td>
       <td>${item.learnCount || 0}</td>
@@ -90,6 +100,155 @@ function statusLabel(status) {
   if (status === 'learned') return 'Đã học';
   if (status === 'mastered') return 'Thành thạo';
   return 'Chưa học';
+}
+
+// Hàm hiển thị chi tiết từ vựng
+function showWordDetail(word, meaning, explanation, example, note) {
+  // Tạo overlay
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+  overlay.style.zIndex = '1050';
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.padding = '20px';
+  
+  // Tạo dialog
+  const dialog = document.createElement('div');
+  dialog.style.backgroundColor = 'white';
+  dialog.style.borderRadius = '8px';
+  dialog.style.padding = '20px';
+  dialog.style.maxWidth = '500px';
+  dialog.style.width = '100%';
+  dialog.style.maxHeight = '90vh';
+  dialog.style.overflowY = 'auto';
+  dialog.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+  
+  // Tạo nội dung
+  let content = `
+    <div style="margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h4 style="margin: 0; color: #333;">${word}</h4>
+        <button id="closeDetailBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <strong>Nghĩa:</strong> ${meaning}
+      </div>
+      
+      ${explanation ? `
+      <div style="margin-bottom: 10px;">
+        <strong>Giải thích:</strong> ${explanation}
+      </div>
+      ` : ''}
+      
+      ${example ? `
+      <div style="margin-bottom: 10px;">
+        <strong>Ví dụ:</strong> ${example}
+      </div>
+      ` : ''}
+      
+      ${note ? `
+      <div style="margin-bottom: 15px;">
+        <strong>Ghi chú:</strong> ${note}
+      </div>
+      ` : ''}
+      
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button id="pronounceBtn" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Phát âm
+        </button>
+        <a href="https://dictionary.cambridge.org/vi/dictionary/english/${encodeURIComponent(word)}" target="_blank" style="padding: 8px 16px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 4px;">
+          Xem trên Cambridge
+        </a>
+      </div>
+      <div id="audioStatus" style="margin-top: 10px; color: #666; font-size: 0.9em;"></div>
+    </div>
+  `;
+  
+  dialog.innerHTML = content;
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  
+  // Thêm sự kiện đóng
+  const closeBtn = dialog.querySelector('#closeDetailBtn');
+  const closeModal = () => {
+    document.body.removeChild(overlay);
+  };
+  
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeModal();
+    }
+  });
+  
+  // Thêm sự kiện phát âm
+  const pronounceBtn = dialog.querySelector('#pronounceBtn');
+  const audioStatus = dialog.querySelector('#audioStatus');
+  
+  if (pronounceBtn) {
+    let audioContext = null;
+    let audioBuffer = null;
+    
+    const updateStatus = (text, isError = false) => {
+      audioStatus.textContent = text;
+      audioStatus.style.color = isError ? '#f44336' : '#4CAF50';
+    };
+    
+    pronounceBtn.addEventListener('click', async () => {
+      try {
+        updateStatus('Đang tải âm thanh...');
+        
+        // Gửi yêu cầu tải âm thanh qua background script
+        const response = await chrome.runtime.sendMessage({
+          type: 'FETCH_AUDIO',
+          word: word
+        });
+        
+        if (response.error) {
+          throw new Error(response.error);
+        }
+        
+        // Chuyển base64 thành ArrayBuffer
+        const binaryString = atob(response.arrayBuffer);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        // Tạo AudioContext nếu chưa có
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Giải mã âm thanh
+        audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
+        
+        // Phát âm thanh
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        
+        updateStatus('Đang phát âm thanh...');
+        
+        source.onended = () => {
+          updateStatus('Đã phát xong');
+          setTimeout(() => updateStatus(''), 2000);
+        };
+        
+      } catch (error) {
+        console.error('Lỗi phát âm thanh:', error);
+        updateStatus('Không thể phát âm thanh', true);
+      }
+    });
+  }
 }
 
 // Hàm thêm hoặc cập nhật từ vựng
@@ -142,13 +301,31 @@ addWordForm.onsubmit = function(e) {
 
 // Thay thế window.editWord và window.deleteWord bằng event delegation
 vocabTableBody.addEventListener('click', function(e) {
-  const target = e.target;
-  if (target.classList.contains('edit-btn')) {
-    const idx = parseInt(target.dataset.idx);
+  // Xử lý sự kiện click cho nút sửa
+  if (e.target.classList.contains('edit-btn')) {
+    const idx = parseInt(e.target.dataset.idx);
     editWord(idx);
-  } else if (target.classList.contains('delete-btn')) {
-    const idx = parseInt(target.dataset.idx);
+    return;
+  }
+  
+  // Xử lý sự kiện click cho nút xóa
+  if (e.target.classList.contains('delete-btn')) {
+    const idx = parseInt(e.target.dataset.idx);
     deleteWord(idx);
+    return;
+  }
+  
+  // Xử lý sự kiện click cho từ vựng
+  const wordLink = e.target.closest('.word-detail');
+  if (wordLink) {
+    e.preventDefault();
+    showWordDetail(
+      wordLink.dataset.word,
+      wordLink.dataset.meaning,
+      wordLink.dataset.explanation,
+      wordLink.dataset.example,
+      wordLink.dataset.note
+    );
   }
 });
 
