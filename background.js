@@ -122,6 +122,65 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Hàm tạo URL âm thanh từ Cambridge Dictionary
+function getCambridgeAudioUrl(word) {
+  if (!word) return null;
+  
+  const cleanWord = word.toLowerCase().trim();
+  if (!cleanWord) return null;
+  
+  // Lấy ký tự đầu tiên
+  const firstChar = cleanWord.charAt(0);
+  
+  // Lấy 3 ký tự đầu (đệm nếu cần)
+  const firstThree = (cleanWord.slice(0, 3) + '___').slice(0, 3);
+  
+  // Lấy 5 ký tự đầu (đệm nếu cần)
+  const firstFive = (cleanWord.slice(0, 5) + '_____').slice(0, 5);
+  
+  // Tạo URL theo cấu trúc của Cambridge
+  return `https://dictionary.cambridge.org/media/english/us_pron/${firstChar}/${firstThree}/${firstFive}/${cleanWord}.mp3`;
+}
+
+// Xử lý yêu cầu tải âm thanh từ content script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'FETCH_AUDIO' && request.word) {
+    const audioUrl = getCambridgeAudioUrl(request.word);
+    
+    if (!audioUrl) {
+      sendResponse({ error: 'Invalid word' });
+      return true;
+    }
+
+    // Tạo một yêu cầu fetch từ background script
+    fetch(audioUrl)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch audio');
+        }
+        return response.arrayBuffer();
+      })
+      .then(arrayBuffer => {
+        // Chuyển ArrayBuffer thành chuỗi base64 để gửi qua message
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64Data = btoa(binary);
+        sendResponse({ arrayBuffer: base64Data });
+      })
+      .catch(error => {
+        console.error('Error fetching audio:', error);
+        sendResponse({ error: error.message });
+      });
+
+    // Trả về true để giữ kết nối message mở cho sendResponse bất đồng bộ
+    return true;
+  }
+  return false;
+});
+
 // Lắng nghe khi người dùng chọn context menu
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'add_to_learn' && info.selectionText) {
@@ -131,4 +190,4 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       text: info.selectionText
     });
   }
-}); 
+});

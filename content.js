@@ -9,7 +9,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-function showLearnAlert(word) {
+async function showLearnAlert(word) {
   // Chọn chế độ hỏi đáp: 50% đảo chiều
   let mode = Math.random() < 0.5 ? 'en-to-vi' : 'vi-to-en';
   let question, answer, promptMsg;
@@ -29,16 +29,256 @@ function showLearnAlert(word) {
     if (userAns === null) continue; // Không cho đóng
     if (userAns.trim().toLowerCase() === (answer || '').toLowerCase()) {
       // Gộp thông tin vào 1 confirm duy nhất
-      let msg = 'Chính xác!';
-      if (word.explanation) msg += `\n\nGiải thích: ${word.explanation}`;
-      if (word.example) msg += `\nVí dụ: ${word.example}`;
-      if (word.note) msg += `\nGhi chú: ${word.note}`;
-      msg += '\n\nBạn có muốn tra cứu chi tiết từ này trên Cambridge Dictionary không?';
-      let openDict = window.confirm(msg);
-      if (openDict && word.word) {
-        const cambridgeUrl = `https://dictionary.cambridge.org/vi/dictionary/english/${encodeURIComponent(word.word)}`;
-        window.open(cambridgeUrl, '_blank');
+      // Create overlay
+      const overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.width = '100%';
+      overlay.style.height = '100%';
+      overlay.style.backgroundColor = '#00000088';
+      overlay.style.zIndex = '9998';
+      overlay.style.display = 'flex';
+      overlay.style.justifyContent = 'center';
+      overlay.style.alignItems = 'center';
+      
+      // Create dialog container
+      const dialog = document.createElement('div');
+      dialog.style.position = 'relative';
+      dialog.style.backgroundColor = 'white';
+      dialog.style.padding = '20px';
+      dialog.style.borderRadius = '8px';
+      dialog.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+      dialog.style.color = '#000';
+      dialog.style.zIndex = '9999';
+      dialog.style.maxWidth = '90%';
+      dialog.style.width = '400px';
+      dialog.style.maxHeight = '90vh';
+      dialog.style.overflowY = 'auto';
+      dialog.style.fontFamily = 'Arial, sans-serif';
+      
+      // Build message content
+      let msg = '<div style="margin-bottom: 15px; color: #2e7d32;">';
+      msg += '<p style="color: #2e7d32; font-weight: bold; margin: 0 0 10px 0; font-size: 18px;">Chính xác! 🎉</p>';
+      
+      if (word.explanation) msg += `<p style="margin: 8px 0;"><strong>Giải thích:</strong> ${word.explanation}</p>`;
+      if (word.example) msg += `<p style="margin: 8px 0;"><strong>Ví dụ:</strong> ${word.example}</p>`;
+      if (word.note) msg += `<p style="margin: 8px 0; color: #666;"><em>Ghi chú:</em> ${word.note}</p>`;
+      
+      // Add pronunciation button if word is in English mode
+      if (word.word) {
+        const audioUrl = getCambridgeAudioUrl(word.word);
+        if (audioUrl) {
+          msg += `
+          <div style="margin: 15px 0; display: flex; align-items: center;">
+            <button id="pronounceBtn" style="
+              background-color: #4CAF50;
+              color: white;
+              border: none;
+              padding: 8px 15px;
+              text-align: center;
+              text-decoration: none;
+              display: inline-flex;
+              align-items: center;
+              font-size: 14px;
+              margin-right: 10px;
+              border-radius: 4px;
+              cursor: pointer;
+            ">
+              <span style="margin-right: 5px;">🔊</span> Phát âm
+            </button>
+            <span id="wordDisplay" style="font-style: italic; margin-right: 10px;">${word.word}</span>
+            <span id="audioStatus" style="font-size: 12px; color: #666;"></span>
+          </div>`;
+        }
       }
+      
+      msg += '</div>';
+      
+      // Add buttons
+      msg += '<div style="display: flex; justify-content: flex-end; gap: 10px;">';
+      msg += '<button id="noBtn" style="padding: 8px 16px; color: #000; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">Đóng</button>';
+      msg += '<button id="yesBtn" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Mở từ điển</button>';
+      msg += '</div>';
+      
+      dialog.innerHTML = msg;
+      
+      // Add dialog to overlay and overlay to body
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      
+      // Add event listeners
+      const yesBtn = dialog.querySelector('#yesBtn');
+      const noBtn = dialog.querySelector('#noBtn');
+      const pronounceBtn = dialog.querySelector('#pronounceBtn');
+      const audioElement = dialog.querySelector('#wordAudio');
+      
+      // Close dialog when clicking outside or pressing Enter
+      const closeModal = () => {
+        if (overlay.parentNode) {
+          document.body.removeChild(overlay);
+        }
+        resolve(false);
+        // Clean up event listeners
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+      
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+          closeModal();
+        }
+      };
+      
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          closeModal();
+        }
+      });
+      
+      // Add keyboard event listener
+      document.addEventListener('keydown', handleKeyDown);
+      
+      if (pronounceBtn) {
+        const audioStatus = dialog.querySelector('#audioStatus');
+        let audioContext = null;
+        let audioBuffer = null;
+        let audioSource = null;
+        let isPlaying = false;
+
+        // Initialize audio context on user interaction
+        const initAudio = () => {
+          if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          return audioContext;
+        };
+
+        const playAudio = async (word) => {
+          try {
+            // Show loading state
+            audioStatus.textContent = ' (Đang tải...)';
+            audioStatus.style.color = '#2196F50';
+
+            // Initialize audio context on first interaction
+            const context = initAudio();
+            
+            // If we already have the buffer, just play it
+            if (audioBuffer) {
+              playBuffer();
+              return;
+            }
+
+            // Request audio data from background script
+            const audioData = await new Promise((resolve, reject) => {
+              chrome.runtime.sendMessage(
+                { type: 'FETCH_AUDIO', word },
+                (response) => {
+                  if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                  } else {
+                    resolve(response);
+                  }
+                }
+              );
+            });
+
+            if (!audioData || !audioData.arrayBuffer) {
+              throw new Error('No audio data received');
+            }
+
+            // Convert base64 to ArrayBuffer
+            const binaryString = atob(audioData.arrayBuffer);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            audioBuffer = await context.decodeAudioData(bytes.buffer);
+            playBuffer();
+            
+          } catch (err) {
+            console.error('Error loading audio:', err);
+            audioStatus.textContent = ' (Lỗi tải âm thanh)';
+            audioStatus.style.color = '#f44336';
+            
+            // Fallback to opening Cambridge dictionary
+            const fallback = confirm('Không thể phát âm thanh. Bạn có muốn mở từ điển Cambridge không?');
+            if (fallback) {
+              const cambridgeUrl = `https://dictionary.cambridge.org/vi/dictionary/english/${encodeURIComponent(word)}`;
+              window.open(cambridgeUrl, '_blank');
+            }
+          }
+        };
+
+        const playBuffer = () => {
+          try {
+            if (isPlaying) {
+              // Stop currently playing audio
+              if (audioSource) {
+                audioSource.stop();
+                audioSource = null;
+              }
+              isPlaying = false;
+              audioStatus.textContent = '';
+              return;
+            }
+
+            const context = initAudio();
+            audioSource = context.createBufferSource();
+            audioSource.buffer = audioBuffer;
+            audioSource.connect(context.destination);
+            
+            audioSource.onended = () => {
+              isPlaying = false;
+              audioStatus.textContent = '';
+            };
+            
+            audioSource.start(0);
+            isPlaying = true;
+            audioStatus.textContent = ' (Đang phát...)';
+            audioStatus.style.color = '#4CAF50';
+          } catch (err) {
+            console.error('Error playing audio:', err);
+            audioStatus.textContent = ' (Lỗi phát âm thanh)';
+            audioStatus.style.color = '#f44336';
+          }
+        };
+
+        pronounceBtn.addEventListener('click', () => {
+          if (audioBuffer && isPlaying) {
+            // Toggle playback if we already have the buffer
+            playBuffer();
+          } else {
+            // Otherwise, fetch and play the audio
+            playAudio(word.word);
+          }
+        });
+      }
+      
+      // Handle button clicks
+      const dialogPromise = new Promise((resolve) => {
+        yesBtn.addEventListener('click', () => {
+          if (word.word) {
+            const cambridgeUrl = `https://dictionary.cambridge.org/vi/dictionary/english/${encodeURIComponent(word.word)}`;
+            window.open(cambridgeUrl, '_blank');
+          }
+          if (overlay.parentNode) {
+            document.body.removeChild(overlay);
+          }
+          resolve(true);
+        });
+        
+        noBtn.addEventListener('click', () => {
+          if (overlay.parentNode) {
+            document.body.removeChild(overlay);
+          }
+          resolve(false);
+        });
+      });
+      
+      // Wait for dialog interaction
+      await dialogPromise;
       updateWordStats(mistakeCount, word);
       chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
       break;
@@ -215,4 +455,26 @@ function showLoading() {
 function hideLoading() {
   const div = document.getElementById('vocab-ai-loading');
   if (div) div.remove();
+}
+
+// Hàm tạo URL âm thanh từ Cambridge Dictionary
+function getCambridgeAudioUrl(word) {
+  if (!word) return null;
+  
+  const cleanWord = word.toLowerCase().trim();
+  if (!cleanWord) return null;
+  
+  // Lấy ký tự đầu tiên
+  const firstChar = cleanWord.charAt(0);
+  
+  // Lấy 3 ký tự đầu (đệm nếu cần)
+  const firstThree = (cleanWord.slice(0, 3) + '___').slice(0, 3);
+  
+  // Lấy 5 ký tự đầu (đệm nếu cần)
+  const firstFive = (cleanWord.slice(0, 5) + '_____').slice(0, 5);
+  
+  // Tạo URL theo cấu trúc của Cambridge
+  const url = `https://dictionary.cambridge.org/media/english/us_pron/${firstChar}/${firstThree}/${firstFive}/${cleanWord}.mp3`;
+  console.log('Generated audio URL:', url);
+  return url;
 } 
