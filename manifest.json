@@ -13,11 +13,7 @@
     "storage",
     "alarms",
     "tabs",
-    "contextMenus",
-    "activeTab"
-  ],
-  "host_permissions": [
-    "https://dictionary.cambridge.org/*"
+    "contextMenus"
   ],
   "content_scripts": [
     {
