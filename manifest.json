@@ -25,9 +25,11 @@
     "tabs",
     "contextMenus"
   ],
-  
   "web_accessible_resources": [{
-    "resources": ["assets/*"],
+    "resources": [
+      "assets/*",
+      "stats/*"
+    ],
     "matches": ["<all_urls>"]
   }],
   "content_scripts": [
@@ -35,5 +37,8 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"]
     }
-  ]
-} 
+  ],
+  "chrome_url_overrides": {
+    "newtab": "stats/index.html"
+  }
+}
