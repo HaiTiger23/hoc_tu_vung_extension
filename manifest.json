@@ -4,7 +4,12 @@
   "description": "Tiện ích mở rộng giúp học và quản lý từ vựng giữa hai ngôn ngữ bất kỳ.",
   "version": "1.0.0",
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
@@ -15,9 +20,11 @@
     "tabs",
     "contextMenus"
   ],
-  
   "web_accessible_resources": [{
-    "resources": ["assets/*"],
+    "resources": [
+      "assets/*",
+      "stats/*"
+    ],
     "matches": ["<all_urls>"]
   }],
   "content_scripts": [
@@ -25,5 +32,8 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"]
     }
-  ]
-} 
+  ],
+  "chrome_url_overrides": {
+    "newtab": "stats/index.html"
+  }
+}
