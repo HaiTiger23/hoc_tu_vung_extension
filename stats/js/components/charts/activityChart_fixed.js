@@ -1,5 +1,5 @@
 import { CHART_COLORS } from '../../core/constants.js';
-import { getActivityByDay, logActivities } from '../../services/statsService.js';
+import { getActivityByDay } from '../../services/statsService.js';
 
 /**
  * Initialize activity chart
@@ -8,18 +8,12 @@ import { getActivityByDay, logActivities } from '../../services/statsService.js'
  */
 export async function initActivityChart(ctx) {
   if (!ctx) {
-    console.error('Canvas context is required');
-    return null;
+    throw new Error('Canvas context is required');
   }
 
   try {
-    // Log current activities for debugging
-    await logActivities();
-    
     // Get activity data for the last 7 days
-    console.log('Fetching activity data...');
     const activityData = await getActivityByDay(7);
-    console.log('Activity data for chart:', activityData);
     
     // Chart colors
     const colors = {
@@ -42,41 +36,37 @@ export async function initActivityChart(ctx) {
       type: 'bar',
       data: {
         labels: activityData.map(d => d?.day || ''),
-        datasets: [
-          {
-            label: 'Đã học',
-            data: activityData.map(d => d?.learned || 0),
-            backgroundColor: colors.learned.bg,
-            borderColor: colors.learned.border,
-            borderWidth: 1,
-            borderRadius: 4,
-            borderSkipped: false,
-            categoryPercentage: 0.8,
-            barPercentage: 0.8
-          },
-          {
-            label: 'Đã ôn tập',
-            data: activityData.map(d => d?.reviewed || 0),
-            backgroundColor: colors.reviewed.bg,
-            borderColor: colors.reviewed.border,
-            borderWidth: 1,
-            borderRadius: 4,
-            borderSkipped: false,
-            categoryPercentage: 0.8,
-            barPercentage: 0.8
-          },
-          {
-            label: 'Đã thành thạo',
-            data: activityData.map(d => d?.mastered || 0),
-            backgroundColor: colors.mastered.bg,
-            borderColor: colors.mastered.border,
-            borderWidth: 1,
-            borderRadius: 4,
-            borderSkipped: false,
-            categoryPercentage: 0.8,
-            barPercentage: 0.8
-          }
-        ]
+        datasets: [{
+          label: 'Đã học',
+          data: activityData.map(d => d?.learned || 0),
+          backgroundColor: colors.learned.bg,
+          borderColor: colors.learned.border,
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: false,
+          categoryPercentage: 0.8,
+          barPercentage: 0.8
+        }, {
+          label: 'Đã ôn tập',
+          data: activityData.map(d => d?.reviewed || 0),
+          backgroundColor: colors.reviewed.bg,
+          borderColor: colors.reviewed.border,
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: false,
+          categoryPercentage: 0.8,
+          barPercentage: 0.8
+        }, {
+          label: 'Đã thành thạo',
+          data: activityData.map(d => d?.mastered || 0),
+          backgroundColor: colors.mastered.bg,
+          borderColor: colors.mastered.border,
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: false,
+          categoryPercentage: 0.8,
+          barPercentage: 0.8
+        }]
       },
       options: {
         responsive: true,
@@ -189,16 +179,10 @@ export async function updateActivityChart(chart, activities) {
   }
 
   try {
-    // Get activity data - use provided activities or fetch fresh data
-    let activityData;
-    
-    if (activities && Array.isArray(activities)) {
-      // If activities are provided, format them by day
-      activityData = await getActivityByDay(7);
-    } else {
-      // Otherwise, fetch fresh data
-      activityData = await getActivityByDay(7);
-    }
+    // If activities are not provided, fetch fresh data
+    const activityData = activities && Array.isArray(activities) 
+      ? await getActivityByDay(7) // Use provided activities but still format them by day
+      : await getActivityByDay(7); // Get fresh activity data for the last 7 days
     
     if (!activityData || !Array.isArray(activityData)) {
       throw new Error('Invalid activity data');
@@ -208,22 +192,18 @@ export async function updateActivityChart(chart, activities) {
     chart.data.labels = activityData.map(d => d?.day || '');
     
     // Safely update datasets
-    if (chart.data.datasets && chart.data.datasets.length > 0) {
-      if (chart.data.datasets[0]) {
-        chart.data.datasets[0].data = activityData.map(d => d?.learned || 0);
-      }
-      if (chart.data.datasets[1]) {
-        chart.data.datasets[1].data = activityData.map(d => d?.reviewed || 0);
-      }
-      if (chart.data.datasets[2]) {
-        chart.data.datasets[2].data = activityData.map(d => d?.mastered || 0);
-      }
-      
-      // Update the chart
-      chart.update();
-    } else {
-      console.warn('No datasets found in chart');
+    if (chart.data.datasets[0]) {
+      chart.data.datasets[0].data = activityData.map(d => d?.learned || 0);
     }
+    if (chart.data.datasets[1]) {
+      chart.data.datasets[1].data = activityData.map(d => d?.reviewed || 0);
+    }
+    if (chart.data.datasets[2]) {
+      chart.data.datasets[2].data = activityData.map(d => d?.mastered || 0);
+    }
+    
+    // Update the chart
+    chart.update();
   } catch (error) {
     console.error('Error updating activity chart:', error);
     throw error;

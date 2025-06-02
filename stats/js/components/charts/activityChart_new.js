@@ -1,25 +1,17 @@
 import { CHART_COLORS } from '../../core/constants.js';
-import { getActivityByDay, logActivities } from '../../services/statsService.js';
+import { getActivityByDay } from '../../services/statsService.js';
 
 /**
  * Initialize activity chart
  * @param {HTMLElement} ctx - Canvas element for the chart
- * @returns {Promise<Chart>} Initialized chart instance
+ * @returns {Promise<Chart|null>} Chart instance or null if initialization fails
  */
 export async function initActivityChart(ctx) {
-  if (!ctx) {
-    console.error('Canvas context is required');
-    return null;
-  }
-
+  if (!ctx) return null;
+  
   try {
-    // Log current activities for debugging
-    await logActivities();
-    
     // Get activity data for the last 7 days
-    console.log('Fetching activity data...');
     const activityData = await getActivityByDay(7);
-    console.log('Activity data for chart:', activityData);
     
     // Chart colors
     const colors = {
@@ -36,8 +28,8 @@ export async function initActivityChart(ctx) {
         border: 'rgba(255, 193, 7, 1)'
       }
     };
-
-    // Create and return the chart instance
+    
+    // Create chart
     return new Chart(ctx, {
       type: 'bar',
       data: {
@@ -157,11 +149,7 @@ export async function initActivityChart(ctx) {
               color: '#6c757d',
               callback: function(value) {
                 const maxValue = Math.max(
-                  ...activityData.map(d => Math.max(
-                    d?.learned || 0,
-                    d?.reviewed || 0,
-                    d?.mastered || 0
-                  ))
+                  ...activityData.map(d => Math.max(d?.learned || 0, d?.reviewed || 0, d?.mastered || 0))
                 );
                 return value % 5 === 0 && value <= Math.ceil(maxValue / 5) * 5 ? value : '';
               }
@@ -172,7 +160,7 @@ export async function initActivityChart(ctx) {
     });
   } catch (error) {
     console.error('Error initializing activity chart:', error);
-    throw error;
+    return null;
   }
 }
 
@@ -183,49 +171,35 @@ export async function initActivityChart(ctx) {
  * @returns {Promise<void>}
  */
 export async function updateActivityChart(chart, activities) {
-  if (!chart) {
-    console.error('Chart instance is required');
-    return;
-  }
-
+  if (!chart) return;
+  
   try {
-    // Get activity data - use provided activities or fetch fresh data
+    // If activities are not provided, fetch fresh data
     let activityData;
-    
     if (activities && Array.isArray(activities)) {
-      // If activities are provided, format them by day
+      // Use provided activities but still format them by day
       activityData = await getActivityByDay(7);
     } else {
-      // Otherwise, fetch fresh data
+      // Get fresh activity data for the last 7 days
       activityData = await getActivityByDay(7);
     }
     
     if (!activityData || !Array.isArray(activityData)) {
-      throw new Error('Invalid activity data');
+      console.error('Invalid activity data for chart update');
+      return;
     }
     
     // Update chart data
     chart.data.labels = activityData.map(d => d?.day || '');
     
     // Safely update datasets
-    if (chart.data.datasets && chart.data.datasets.length > 0) {
-      if (chart.data.datasets[0]) {
-        chart.data.datasets[0].data = activityData.map(d => d?.learned || 0);
-      }
-      if (chart.data.datasets[1]) {
-        chart.data.datasets[1].data = activityData.map(d => d?.reviewed || 0);
-      }
-      if (chart.data.datasets[2]) {
-        chart.data.datasets[2].data = activityData.map(d => d?.mastered || 0);
-      }
-      
-      // Update the chart
-      chart.update();
-    } else {
-      console.warn('No datasets found in chart');
-    }
+    if (chart.data.datasets[0]) chart.data.datasets[0].data = activityData.map(d => d?.learned || 0);
+    if (chart.data.datasets[1]) chart.data.datasets[1].data = activityData.map(d => d?.reviewed || 0);
+    if (chart.data.datasets[2]) chart.data.datasets[2].data = activityData.map(d => d?.mastered || 0);
+    
+    // Update the chart
+    chart.update();
   } catch (error) {
     console.error('Error updating activity chart:', error);
-    throw error;
   }
 }

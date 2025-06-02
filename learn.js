@@ -46,7 +46,7 @@ function showQuestion(word) {
   answerInput.focus();
 }
 
-function checkAnswer() {
+async function checkAnswer() {
   const ans = answerInput.value.trim().toLowerCase();
   let correct = false;
   if (mode === 'en-to-vi') {
@@ -54,6 +54,80 @@ function checkAnswer() {
   } else {
     correct = ans === (currentWord.word || '').toLowerCase();
   }
+  
+  // Log the activity
+  const activity = {
+    type: correct ? (currentWord.status === 'mastered' ? 'master' : 'review') : 'learn',
+    word: currentWord.word,
+    translation: currentWord.meaning,
+    timestamp: Date.now(),
+    correct: correct
+  };
+
+  // Save the activity
+  try {
+    console.log('Bắt đầu lưu hoạt động:', activity);
+    
+    // Lấy dữ liệu hiện tại
+    const result = await chrome.storage.local.get(['activityLogs', 'vocabData']);
+    
+    // Cập nhật activityLogs
+    const activityLogs = Array.isArray(result.activityLogs) ? [...result.activityLogs] : [];
+    activityLogs.push({
+      ...activity,
+      // Đảm bảo timestamp là số nguyên
+      timestamp: Math.floor(Date.now() / 1000) * 1000,
+      // Thêm các trường bắt buộc nếu thiếu
+      type: activity.type || (correct ? 'review' : 'learn'),
+      correct: !!correct
+    });
+    
+    console.log('Đang lưu activityLogs mới:', activityLogs);
+    
+    // Cập nhật vocabData nếu có currentWord
+    let vocabData = [];
+    if (currentWord?.id) {
+      vocabData = Array.isArray(result.vocabData) ? [...result.vocabData] : [];
+      const wordIndex = vocabData.findIndex(w => w.id === currentWord.id);
+      
+      if (wordIndex !== -1) {
+        const now = Math.floor(Date.now() / 1000) * 1000;
+        vocabData[wordIndex] = {
+          ...vocabData[wordIndex],
+          lastReviewed: now,
+          timesReviewed: (vocabData[wordIndex].timesReviewed || 0) + (correct ? 1 : 0),
+          timesIncorrect: (vocabData[wordIndex].timesIncorrect || 0) + (correct ? 0 : 1)
+        };
+        console.log('Đang cập nhật từ vựng:', vocabData[wordIndex]);
+      }
+    }
+    
+    // Lưu tất cả dữ liệu trong một lần gọi
+    const updateData = { activityLogs };
+    if (vocabData.length > 0) {
+      updateData.vocabData = vocabData;
+    }
+    
+    console.log('Đang lưu dữ liệu vào storage:', updateData);
+    await chrome.storage.local.set(updateData);
+    
+    // Kiểm tra lại sau khi lưu
+    const verify = await chrome.storage.local.get(['activityLogs']);
+    console.log('Đã lưu xong, kiểm tra lại:', verify.activityLogs);
+    
+  } catch (error) {
+    console.error('Lỗi khi lưu hoạt động:', error);
+    // Thử lưu lại dữ liệu vào localStorage nếu có lỗi
+    try {
+      const localLogs = JSON.parse(localStorage.getItem('activityLogs') || '[]');
+      localLogs.push(activity);
+      localStorage.setItem('activityLogs', JSON.stringify(localLogs));
+      console.log('Đã lưu vào localStorage thay thế');
+    } catch (e) {
+      console.error('Lỗi khi lưu vào localStorage:', e);
+    }
+  }
+
   if (correct) {
     feedback.className = 'alert alert-success';
     feedback.textContent = 'Chính xác!';
@@ -70,7 +144,7 @@ function checkAnswer() {
   }
 }
 
-function updateWordStats(isCorrect) {
+async function updateWordStats(isCorrect) {
   // Cập nhật trạng thái từ vựng trong storage
   function update(list) {
     const idx = list.findIndex(w => w.word === currentWord.word && w.meaning === currentWord.meaning);
@@ -117,9 +191,19 @@ function updateWordStats(isCorrect) {
   }
 }
 
-checkBtn.onclick = checkAnswer;
+// Sử dụng addEventListener thay vì gán trực tiếp để tránh ghi đè sự kiện
+checkBtn.addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  checkAnswer().catch(console.error);
+});
+
 answerInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') checkAnswer();
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    checkAnswer().catch(console.error);
+  }
 });
 closeBtn.onclick = function() { window.close(); };
 

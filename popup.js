@@ -478,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', function() {
       // Nếu là tab Thống kê thì mở trang mới và không chuyển tab trong popup
       if (btn.id === 'stats-tab') {
-        window.open('stats.html', '_blank');
+        window.open('stats/index.html', '_blank');
         // Chuyển về tab Từ vựng trong popup
         const vocabTab = document.getElementById('vocab-tab');
         if (vocabTab) vocabTab.click();

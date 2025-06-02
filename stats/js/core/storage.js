@@ -17,16 +17,14 @@ export function getVocabData(cb) {
       activityData = result.activityLogs || [];
       achievements = result.achievements || [];
       
-      // Initialize with mock data if empty
+      // Only initialize vocab data if empty, but don't generate mock activities
       if (allVocab.length === 0) {
         allVocab = generateMockVocabData();
       }
       
-      if (activityData.length === 0) {
-        activityData = generateMockActivityData();
-      }
+      // Don't generate mock activity data, we'll use real data
       
-      cb(allVocab);
+      if (cb) cb(allVocab);
     });
   } else {
     // Fallback to localStorage
@@ -38,7 +36,7 @@ export function getVocabData(cb) {
     }
     
     if (!localStorage.getItem('activityLogs')) {
-      activityData = generateMockActivityData();
+      activityData = [];
       localStorage.setItem('activityLogs', JSON.stringify(activityData));
     } else {
       activityData = JSON.parse(localStorage.getItem('activityLogs'));
@@ -95,30 +93,13 @@ function generateMockVocabData() {
  * Generate mock activity data
  * @returns {Array} Mock activity data
  */
+/**
+ * Generate empty activity data array
+ * @returns {Array} Empty array since we use real data
+ */
 function generateMockActivityData() {
-  const activities = [];
-  const now = Date.now();
-  const types = ['learn', 'review', 'master'];
-  
-  for (let i = 0; i < 20; i++) {
-    const word = DEFAULTS.MOCK_WORDS[Math.floor(Math.random() * DEFAULTS.MOCK_WORDS.length)];
-    const type = types[Math.floor(Math.random() * types.length)];
-    const timestamp = now - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000);
-    
-    activities.push({
-      id: `activity-${i}-${Date.now()}`,
-      type,
-      word: word.word,
-      translation: word.translation,
-      timestamp,
-      timesReviewed: Math.floor(Math.random() * 10) + 1,
-      timesIncorrect: Math.floor(Math.random() * 3),
-      streak: Math.floor(Math.random() * 7),
-      lastReviewed: timestamp
-    });
-  }
-  
-  return activities.sort((a, b) => b.timestamp - a.timestamp);
+  // Return empty array as we'll use real activity data
+  return [];
 }
 
 // Export getters for global state
@@ -126,8 +107,55 @@ export function getVocab() {
   return allVocab;
 }
 
-export function getActivities() {
-  return activityData;
+/**
+ * Get all activity logs
+ * @returns {Promise<Array>} Array of activity logs
+ */
+export async function getActivities() {
+  return new Promise((resolve) => {
+    try {
+      if (chrome?.storage?.local) {
+        chrome.storage.local.get(['activityLogs', 'activities'], (result) => {
+          // Try both activityLogs and activities for backward compatibility
+          let logs = [];
+          if (Array.isArray(result.activityLogs)) {
+            logs = [...result.activityLogs];
+          } else if (Array.isArray(result.activities)) {
+            logs = [...result.activities];
+          }
+          
+          console.log('Retrieved activities from storage:', logs);
+          
+          // Filter out invalid entries and sort by timestamp descending
+          const validLogs = logs
+            .filter(log => log && typeof log === 'object' && 'timestamp' in log)
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            
+          resolve(validLogs);
+        });
+      } else {
+        // Fallback to localStorage
+        let logs = [];
+        try {
+          logs = JSON.parse(localStorage.getItem('activityLogs') || '[]');
+          if (!Array.isArray(logs)) logs = [];
+        } catch (e) {
+          console.error('Error parsing activity logs from localStorage:', e);
+          logs = [];
+        }
+        
+        // Filter and sort logs
+        const validLogs = logs
+          .filter(log => log && typeof log === 'object' && 'timestamp' in log)
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          
+        resolve(validLogs);
+      }
+    } catch (error) {
+      console.error('Error in getActivities:', error);
+      resolve([]); // Return empty array on error
+    }
+  });
 }
 
 export function getAchievements() {
