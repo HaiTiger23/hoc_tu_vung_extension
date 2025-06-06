@@ -50,9 +50,9 @@ async function checkAnswer() {
   const ans = answerInput.value.trim().toLowerCase();
   let correct = false;
   if (mode === 'en-to-vi') {
-    correct = ans === (currentWord.meaning || '').toLowerCase();
+    correct = ans === (currentWord.meaning || '').trim().toLowerCase();
   } else {
-    correct = ans === (currentWord.word || '').toLowerCase();
+    correct = ans === (currentWord.word || '').trim().toLowerCase();
   }
   
   // Log the activity

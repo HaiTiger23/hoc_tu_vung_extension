@@ -442,7 +442,7 @@ if (settingsForm) {
     const settings = {
       isEnabled: document.getElementById('isEnabled').checked,
       dailyWordGoal: parseInt(document.getElementById('dailyWordGoal').value),
-      popupInterval: parseInt(document.getElementById('popupInterval').value),
+      popupInterval: parseFloat(document.getElementById('popupInterval').value),
       activeHours: {
         enabled: document.getElementById('activeHoursEnabled').checked,
         startTime: document.getElementById('activeStart').value,

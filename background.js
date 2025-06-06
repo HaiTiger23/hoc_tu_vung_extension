@@ -64,7 +64,7 @@ function selectSmartWord(vocabList) {
     score -= (w.correctStreak || 0);
     // Ưu tiên từ chưa được ôn tập lâu
     if (w.lastReviewedAt) {
-      const days = (now - new Date(w.lastReviewedAt).getTime()) / (1000*60*60*24);
+      const days = (now - new Date(w.lastReviewedAt).getTime()) / (1000 * 60 * 60 * 24);
       score += Math.min(5, days);
     }
     return score;
@@ -76,12 +76,25 @@ function selectSmartWord(vocabList) {
   return topWords[Math.floor(Math.random() * topWords.length)];
 }
 
-// Khi alarm kích hoạt, chỉ gửi modal nếu chưa có trạng thái 'waiting'
+// Khi alarm kích hoạt, đóng modal cũ (nếu có) và hiển thị modal mới
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'vocab_learning') {
     chrome.storage.local.get(['vocabData', 'vocabLearningState'], (result) => {
+      // Nếu đang có modal chờ, đóng nó trước
       if (result.vocabLearningState === 'waiting') {
-        console.log('[VocabExt] Đang chờ người dùng trả lời, không gửi modal mới');
+        console.log('[VocabExt] Đang đóng modal cũ để hiển thị modal mới');
+        // Gửi tín hiệu đóng modal đến tất cả các tab
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach(tab => {
+            try {
+              chrome.tabs.sendMessage(tab.id, { type: 'CLOSE_MODAL' });
+            } catch (e) {
+              // Bỏ qua lỗi nếu tab không có content script
+            }
+          });
+        });
+        // Đặt lại trạng thái
+        chrome.storage.local.set({ vocabLearningState: null });
         return;
       }
       const vocabList = result.vocabData || [];
@@ -91,12 +104,55 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         return;
       }
       console.log('[VocabExt] Chọn từ để ôn:', word.word, '|', word.meaning, '| nextReviewAt:', word.nextReviewAt);
-      chrome.storage.local.set({ vocabLearningState: 'waiting' }, () => {
-        chrome.tabs.query({active: true, currentWindow: true, url: ["http://*/*", "https://*/*"]}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LEARN_MODAL', word }, () => {
-              // Bắt lỗi nhưng không log nếu không có content script
-            });
+      chrome.windows.getCurrent(window => {
+        // Thay vì dùng getCurrent, hãy query tất cả các tab đang active
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          console.log('Active tabs in all windows:', tabs);
+
+          if (tabs.length === 0) {
+            console.log('Không tìm thấy tab active nào!');
+            return;
+          }
+
+          const tab = tabs[0];
+          console.log('Chuẩn bị gửi message đến tab:', tab.id);
+
+          // Kiểm tra xem content script có đang chạy không
+          chrome.tabs.sendMessage(tab.id, { type: 'PING' }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('Content script chưa sẵn sàng:', chrome.runtime.lastError);
+              
+              // Thử inject lại content script
+              chrome.tabs.executeScript(tab.id, {
+                file: 'content.js'
+              }, () => {
+                if (chrome.runtime.lastError) {
+                  console.error('Không thể inject lại content script:', chrome.runtime.lastError);
+                } else {
+                  console.log('Đã inject lại content script thành công');
+                  // Chờ content script khởi động
+                  setTimeout(() => {
+                    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LEARN_MODAL', word }, (response) => {
+                      if (chrome.runtime.lastError) {
+                        console.error('Vẫn lỗi sau khi inject:', chrome.runtime.lastError);
+                      } else {
+                        console.log('Gửi message thành công sau khi inject');
+                      }
+                    });
+                  }, 500);
+                }
+              });
+            } else {
+              console.log('Content script đã sẵn sàng:', response);
+              // Nếu content script đã sẵn sàng, gửi message ngay
+              chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LEARN_MODAL', word }, (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error('Lỗi khi gửi message:', chrome.runtime.lastError);
+                } else {
+                  console.log('Gửi message thành công');
+                }
+              });
+            }
           });
         });
       });
@@ -125,19 +181,19 @@ chrome.runtime.onInstalled.addListener(() => {
 // Hàm tạo URL âm thanh từ Cambridge Dictionary
 function getCambridgeAudioUrl(word) {
   if (!word) return null;
-  
+
   const cleanWord = word.toLowerCase().trim();
   if (!cleanWord) return null;
-  
+
   // Lấy ký tự đầu tiên
   const firstChar = cleanWord.charAt(0);
-  
+
   // Lấy 3 ký tự đầu (đệm nếu cần)
   const firstThree = (cleanWord.slice(0, 3) + '___').slice(0, 3);
-  
+
   // Lấy 5 ký tự đầu (đệm nếu cần)
   const firstFive = (cleanWord.slice(0, 5) + '_____').slice(0, 5);
-  
+
   // Tạo URL theo cấu trúc của Cambridge
   return `https://dictionary.cambridge.org/media/english/us_pron/${firstChar}/${firstThree}/${firstFive}/${cleanWord}.mp3`;
 }
@@ -146,7 +202,7 @@ function getCambridgeAudioUrl(word) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'FETCH_AUDIO' && request.word) {
     const audioUrl = getCambridgeAudioUrl(request.word);
-    
+
     if (!audioUrl) {
       sendResponse({ error: 'Invalid word' });
       return true;

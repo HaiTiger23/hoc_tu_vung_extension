@@ -19,12 +19,13 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": [
-    "storage",
-    "alarms",
-    "tabs",
-    "contextMenus"
-  ],
+ "permissions": [
+  "storage",
+  "alarms",
+  "tabs",
+  "contextMenus",
+  "notifications"
+],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'self'"
   },

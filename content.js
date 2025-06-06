@@ -1,11 +1,33 @@
+// Biến lưu trạng thái modal hiện tại
+let currentModal = null;
+
 // Content script: Nhận message từ background để hỏi đáp bằng alert
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'SHOW_LEARN_MODAL' && msg.word) {
-    showLearnAlert(msg.word);
+  // Xử lý message PING để kiểm tra trạng thái content script
+  if (msg.type === 'PING') {
+    console.log('Content script đã sẵn sàng');
+    sendResponse({ status: 'ready' });
+    return true; // Keep the message channel open
   }
-  // Xử lý thêm từ mới bằng context menu và Gemini AI
+
+  if (msg.type === 'SHOW_LEARN_MODAL' && msg.word) {
+    // Đóng modal cũ nếu có
+    if (currentModal) {
+      document.body.removeChild(currentModal);
+      currentModal = null;
+    }
+    
+    chrome.storage.local.set({ vocabLearningState: 'waiting' }, () => {
+      showLearnAlert(msg.word);
+    });
+    sendResponse({ status: 'success' });
+    return true; // Keep the message channel open
+  }
+
   if (msg.type === 'ADD_TO_LEARN' && msg.text) {
     addWordByGemini(msg.text.trim());
+    sendResponse({ status: 'success' });
+    return true; // Keep the message channel open
   }
 });
 
@@ -37,7 +59,7 @@ async function showLearnAlert(word) {
       overlay.style.width = '100%';
       overlay.style.height = '100%';
       overlay.style.backgroundColor = '#00000088';
-      overlay.style.zIndex = '9998';
+      overlay.style.zIndex = '9999999999';
       overlay.style.display = 'flex';
       overlay.style.justifyContent = 'center';
       overlay.style.alignItems = 'center';
@@ -50,7 +72,7 @@ async function showLearnAlert(word) {
       dialog.style.borderRadius = '8px';
       dialog.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
       dialog.style.color = '#000';
-      dialog.style.zIndex = '9999';
+      dialog.style.zIndex = '9999999999';
       dialog.style.maxWidth = '90%';
       dialog.style.width = '400px';
       dialog.style.maxHeight = '90vh';
@@ -106,7 +128,7 @@ async function showLearnAlert(word) {
       // Add dialog to overlay and overlay to body
       overlay.appendChild(dialog);
       document.body.appendChild(overlay);
-      
+      chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
       // Add event listeners
       const yesBtn = dialog.querySelector('#yesBtn');
       const noBtn = dialog.querySelector('#noBtn');
@@ -118,7 +140,7 @@ async function showLearnAlert(word) {
         if (overlay.parentNode) {
           document.body.removeChild(overlay);
         }
-        resolve(false);
+        // resolve(false);
         // Clean up event listeners
         document.removeEventListener('keydown', handleKeyDown);
       };
@@ -280,7 +302,6 @@ async function showLearnAlert(word) {
       // Wait for dialog interaction
       await dialogPromise;
       updateWordStats(mistakeCount, word);
-      chrome.runtime.sendMessage({ type: 'LEARN_MODAL_DONE' });
       break;
     } else {
       window.alert(`Sai! Đáp án đúng: ${answer}`);
