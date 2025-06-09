@@ -19,6 +19,9 @@
         <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settingsTabPane" type="button" role="tab">Cài đặt</button>
       </li>
       <li class="nav-item" role="presentation">
+        <button class="nav-link" id="ai-generate-tab" data-bs-toggle="tab" data-bs-target="#aiGenerateTabPane" type="button" role="tab">Tạo từ AI</button>
+      </li>
+      <li class="nav-item" role="presentation">
         <button class="nav-link" id="stats-tab" type="button" role="tab">Thống kê</button>
       </li>
     </ul>
@@ -167,6 +170,35 @@
               <button class="btn btn-outline-danger" id="logoutCloudBtn">Đăng xuất đồng bộ</button>
             </div>
             <div id="cloudSyncStatus" class="small text-secondary"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="aiGenerateTabPane" role="tabpanel">
+        <div class="mb-3">
+          <div class="input-group">
+            <input type="text" class="form-control" id="topicInput" placeholder="Nhập chủ đề (ví dụ: Công nghệ, Nấu ăn, Du lịch...)">
+            <button class="btn btn-primary" type="button" id="generateVocabBtn">Tạo từ vựng</button>
+          </div>
+          <div class="form-text mb-2">Nhập chủ đề bạn muốn học, hệ thống sẽ tạo danh sách từ vựng liên quan.</div>
+          
+          <div id="generatedVocabContainer" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6>Kết quả tìm kiếm cho: <span id="topicDisplay" class="fw-bold"></span></h6>
+              <button class="btn btn-sm btn-success" id="addAllBtn">Thêm tất cả</button>
+            </div>
+            <div id="loadingIndicator" class="text-center my-4 d-none">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
+              </div>
+              <p class="mt-2">Đang tạo từ vựng, vui lòng đợi...</p>
+            </div>
+            <div id="generatedVocabList" class="list-group mb-3">
+              <!-- Generated vocabulary items will be added here -->
+            </div>
+          </div>
+          <div id="generatedVocabEmpty" class="text-center text-muted py-4">
+            <i class="bi bi-lightbulb fs-1 d-block mb-2">💡</i>
+            <p>Nhập chủ đề và nhấn "Tạo từ vựng" để bắt đầu</p>
           </div>
         </div>
       </div>

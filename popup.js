@@ -648,6 +648,343 @@ if (importBtn && importFileInput) {
   };
 }
 
+// --- TẠO TỪ VỰNG BẰNG AI ---
+const topicInput = document.getElementById('topicInput');
+const generateVocabBtn = document.getElementById('generateVocabBtn');
+const generatedVocabContainer = document.getElementById('generatedVocabContainer');
+const generatedVocabList = document.getElementById('generatedVocabList');
+const generatedVocabEmpty = document.getElementById('generatedVocabEmpty');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const topicDisplay = document.getElementById('topicDisplay');
+const addAllBtn = document.getElementById('addAllBtn');
+
+// Hàm gọi Gemini API để tạo từ vựng theo chủ đề
+async function generateVocabByTopic(topic) {
+  try {
+    // Lấy API key và model từ cài đặt
+    const settings = await new Promise(resolve => {
+      if (chrome.storage && chrome.storage.sync) {
+        chrome.storage.sync.get(['settings'], result => resolve(result.settings || {}));
+      } else {
+        resolve(JSON.parse(localStorage.getItem('settings')) || {});
+      }
+    });
+
+    const apiKey = settings.geminiApiKey || '';
+    const model = settings.geminiModel || 'gemini-pro';
+
+    if (!apiKey) {
+      showNotification('Vui lòng cấu hình Gemini API Key trong phần Cài đặt', 'danger');
+      return [];
+    }
+
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    
+    const prompt = `Tạo danh sách 10-15 từ vựng tiếng Anh liên quan đến chủ đề "${topic}" với định dạng JSON như sau:
+
+    [
+      {
+        "word": "từ tiếng Anh ngắn gọn ",
+        "meaning": "nghĩa tiếng Việt ngắn gọn dễ hiểu",
+        "explanation": "giải thích chi tiết ý nghĩa, loại từ và cách dùng bằng tiếng việt",
+        "example": "câu ví dụ sử dụng từ này có cả giải thích tiếng việt"
+      },
+      ...
+    ]
+    
+    Yêu cầu:
+    - Chỉ trả về nội dung JSON, không thêm bất kỳ văn bản nào khác
+    - Đảm bảo JSON hợp lệ, không chứa ký tự đặc biệt không cần thiết
+    - Ví dụ phải tự nhiên và gần gũi với chủ đề`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Gemini API error:', error);
+      throw new Error(error.error?.message || 'Lỗi khi gọi Gemini API');
+    }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!content) {
+      throw new Error('Không nhận được phản hồi từ Gemini API');
+    }
+
+    // Xử lý nội dung trả về để trích xuất JSON
+    const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
+    if (!jsonMatch) {
+      throw new Error('Không thể phân tích phản hồi từ Gemini API');
+    }
+
+    const vocabList = JSON.parse(jsonMatch[0]);
+    return Array.isArray(vocabList) ? vocabList : [vocabList];
+  } catch (error) {
+    console.error('Lỗi khi tạo từ vựng:', error);
+    showNotification(`Lỗi: ${error.message}`, 'danger');
+    return [];
+  }
+}
+
+// Hiển thị danh sách từ vựng đã tạo
+function displayGeneratedVocab(vocabList, topic) {
+  generatedVocabList.innerHTML = '';
+  
+  if (!vocabList || vocabList.length === 0) {
+    generatedVocabEmpty.classList.remove('d-none');
+    generatedVocabContainer.classList.add('d-none');
+    return;
+  }
+
+  vocabList.forEach((item, index) => {
+    const vocabItem = document.createElement('div');
+    vocabItem.className = 'list-group-item';
+    vocabItem.innerHTML = `
+      <div class="d-flex justify-content-between align-items-start">
+        <div class="flex-grow-1">
+          <h6 class="mb-1">${item.word} <small class="text-muted">${item.meaning}</small></h6>
+          ${item.explanation ? `<p class="mb-1 small text-muted">${item.explanation}</p>` : ''}
+          ${item.example ? `<p class="mb-0 small"><em>Ví dụ:</em> ${item.example}</p>` : ''}
+        </div>
+        <button class="btn btn-sm btn-outline-success ms-2 add-vocab-btn" 
+                data-word="${item.word}" 
+                data-meaning="${item.meaning || ''}" 
+                data-explanation="${item.explanation || ''}" 
+                data-example="${item.example || ''}">
+          Thêm
+        </button>
+      </div>
+    `;
+    generatedVocabList.appendChild(vocabItem);
+  });
+
+  // Thêm sự kiện click cho nút thêm từ
+  generatedVocabList.addEventListener('click', (e) => {
+    const addButton = e.target.closest('.add-vocab-btn');
+    if (!addButton) return;
+    
+    // Lấy dữ liệu từ data attributes
+    const vocab = {
+      word: addButton.dataset.word,
+      meaning: addButton.dataset.meaning,
+      explanation: addButton.dataset.explanation,
+      example: addButton.dataset.example
+    };
+    
+    addGeneratedVocab(vocab, addButton);
+  });
+
+  // Hiển thị container và ẩn empty state
+  topicDisplay.textContent = topic;
+  generatedVocabContainer.classList.remove('d-none');
+  generatedVocabEmpty.classList.add('d-none');
+}
+
+// Thêm từ đã tạo vào danh sách từ vựng
+function addGeneratedVocab(vocab, buttonElement = null) {
+  try {
+    // Kiểm tra xem từ đã tồn tại chưa
+    const exists = vocabData.some(item => 
+      item.word.toLowerCase() === vocab.word.toLowerCase()
+    );
+    
+    if (exists) {
+      showNotification(`Từ "${vocab.word}" đã có trong danh sách học`, 'info');
+      if (buttonElement) {
+        updateButtonState(buttonElement, true);
+      }
+      return;
+    }
+
+    // Tạo một đối tượng từ vựng mới với cấu trúc phù hợp
+    const newVocab = {
+      word: vocab.word || '',
+      meaning: vocab.meaning || '',
+      explanation: vocab.explanation || '',
+      example: vocab.example || '',
+      status: 'not_learned',
+      createdAt: new Date().toISOString(),
+      learnCount: 0,
+      mistakeCount: 0,
+      lastReviewedAt: null,
+      nextReviewAt: null,
+      correctStreak: 0
+    };
+
+    // Thêm vào danh sách từ vựng
+    vocabData.push(newVocab);
+    saveVocab();
+    
+    // Cập nhật giao diện nếu có buttonElement
+    if (buttonElement) {
+      updateButtonState(buttonElement, true);
+    } else {
+      // Nếu không có buttonElement, tìm nút tương ứng
+      const addButton = document.querySelector(`.add-vocab-btn[data-word="${vocab.word}"]`);
+      if (addButton) {
+        updateButtonState(addButton, true);
+      }
+    }
+    
+    showNotification(`Đã thêm từ "${vocab.word}" vào danh sách học`);
+  } catch (error) {
+    console.error('Lỗi khi thêm từ:', error);
+    showNotification('Có lỗi xảy ra khi thêm từ', 'danger');
+  }
+}
+
+// Cập nhật trạng thái nút thêm từ
+function updateButtonState(button, isAdded) {
+  if (!button) return;
+  
+  if (isAdded) {
+    button.textContent = 'Đã thêm';
+    button.disabled = true;
+    button.classList.remove('btn-outline-success');
+    button.classList.add('btn-outline-secondary');
+  } else {
+    button.textContent = 'Thêm';
+    button.disabled = false;
+    button.classList.add('btn-outline-success');
+    button.classList.remove('btn-outline-secondary');
+  }
+}
+
+// Hàm bật/tắt trạng thái loading
+function setLoading(isLoading) {
+  if (isLoading) {
+    generateVocabBtn.disabled = true;
+    generateVocabBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Đang tạo...';
+    loadingIndicator.classList.remove('d-none');
+  } else {
+    generateVocabBtn.disabled = false;
+    generateVocabBtn.textContent = 'Tạo từ vựng';
+    loadingIndicator.classList.add('d-none');
+  }
+}
+
+// Sự kiện khi nhấn nút tạo từ vựng
+generateVocabBtn.addEventListener('click', async () => {
+  const topic = topicInput.value.trim();
+  if (!topic) {
+    showNotification('Vui lòng nhập chủ đề', 'warning');
+    return;
+  }
+
+  // Nếu đang trong quá trình tải, không làm gì cả
+  if (generateVocabBtn.disabled) {
+    return;
+  }
+
+  try {
+    // Bật trạng thái loading
+    setLoading(true);
+    generatedVocabContainer.classList.add('d-none');
+    generatedVocabEmpty.classList.add('d-none');
+    
+    // Gọi API tạo từ vựng
+    const vocabList = await generateVocabByTopic(topic);
+    
+    if (vocabList.length > 0) {
+      // Lưu danh sách từ vựng tạm thời vào thuộc tính của nút "Thêm tất cả"
+      addAllBtn.dataset.vocabList = JSON.stringify(vocabList);
+      displayGeneratedVocab(vocabList, topic);
+    } else {
+      generatedVocabEmpty.textContent = 'Không tìm thấy từ vựng nào phù hợp. Vui lòng thử chủ đề khác.';
+      generatedVocabEmpty.classList.remove('d-none');
+    }
+  } catch (error) {
+    console.error('Lỗi:', error);
+    showNotification(`Lỗi: ${error.message}`, 'danger');
+  } finally {
+    // Tắt trạng thái loading dù có lỗi hay không
+    setLoading(false);
+  }
+});
+
+// Sự kiện khi nhấn nút thêm tất cả
+addAllBtn.addEventListener('click', async () => {
+  try {
+    const vocabList = JSON.parse(addAllBtn.dataset.vocabList || '[]');
+    if (!vocabList.length) return;
+    
+    // Vô hiệu hóa nút trong quá trình thêm
+    const originalText = addAllBtn.innerHTML;
+    addAllBtn.disabled = true;
+    addAllBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Đang thêm...';
+    
+    let addedCount = 0;
+    
+    // Thêm từng từ một với độ trễ nhỏ để tránh UI bị đóng băng
+    for (const vocab of vocabList) {
+      // Kiểm tra xem từ đã tồn tại chưa
+      const exists = vocabData.some(item => 
+        item.word.toLowerCase() === vocab.word.toLowerCase()
+      );
+      
+      if (!exists) {
+        // Tạo một đối tượng từ vựng mới
+        const newVocab = {
+          word: vocab.word || '',
+          meaning: vocab.meaning || '',
+          explanation: vocab.explanation || '',
+          example: vocab.example || '',
+          status: 'not_learned',
+          createdAt: new Date().toISOString(),
+          learnCount: 0,
+          mistakeCount: 0,
+          lastReviewedAt: null,
+          nextReviewAt: null,
+          correctStreak: 0
+        };
+        
+        vocabData.push(newVocab);
+        addedCount++;
+        
+        // Cập nhật giao diện cho từng từ
+        const addButton = document.querySelector(`.add-vocab-btn[data-word="${vocab.word}"]`);
+        if (addButton) {
+          updateButtonState(addButton, true);
+        }
+        
+        // Thêm độ trễ nhỏ giữa các lần thêm
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    // Lưu thay đổi sau khi đã thêm tất cả
+    if (addedCount > 0) {
+      await saveVocab();
+      showNotification(`Đã thêm ${addedCount} từ vào danh sách học`);
+    } else {
+      showNotification('Tất cả các từ đã có trong danh sách học', 'info');
+    }
+    
+  } catch (error) {
+    console.error('Lỗi khi thêm tất cả từ:', error);
+    showNotification('Có lỗi xảy ra khi thêm từ: ' + error.message, 'danger');
+  } finally {
+    // Khôi phục trạng thái nút
+    if (addAllBtn) {
+      addAllBtn.disabled = false;
+      addAllBtn.innerHTML = originalText || 'Thêm tất cả';
+    }
+  }
+});
+
 // --- ĐỒNG BỘ ĐÁM MÂY (FIREBASE) ---
 const firebaseUrlInput = document.getElementById('firebaseUrl');
 const firebaseTokenInput = document.getElementById('firebaseToken');
